@@ -9,96 +9,138 @@
 #include <HX711.h>
 #include <TimeLib.h>
 
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-#define OLED_RESET     -1 // Reset pin # (or -1 if sharing Arduino reset pin)
+// Oled screen constants
+#define SCREEN_WIDTH    128
+#define SCREEN_HEIGHT   64
+#define OLED_RESET      -1 //Share pin with arduino reset
 #define SEALEVELPRESSURE_HPA (1013.25)
 
+// HX711 weight scale constants
+#define LOADCELL_DOUT_PIN = 4
+#define LOADCELL_SCK_PIN = 5
+
+// Button
+#define BUTTON_PIN = 123
+
+// Define sensors
 Adafruit_BME280 bme;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-float temperature, humidity, pressure, altitude; 
-
-// HX711 circuit wiring
-const int LOADCELL_DOUT_PIN = 4;
-const int LOADCELL_SCK_PIN = 5;
 HX711 scale;
 
-void testdrawstyles(void);
+// globals
+float temperature;
+float humidity;
+float pressure;
+float altitude; 
+boolean brew;
+boolean empty;
+boolean cold;
+float zeroed_weight;
+double zeroed_temperature;
+
+void tempChange(void);
+
+float getWeight(void);
+
+double getTemperature(void);
 
 void setup() {
   Serial.begin(9600);
   mlx.begin();
   bme.begin(0x76);
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+  pinMode(BUTTON_PIN, INPUT);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
+    for (;;); //Loop forever
   }
 
-  // the library initializes this with an Adafruit splash screen.
-  display.display();
-  delay(2000); // Pause for 2 seconds
+  display.display();  // the library initializes this with an Adafruit splash screen.
+  delay(1000);
   display.clearDisplay();
+
+  //Zeroing 
+  zeroed_weight = getWeight();
+  zeroed_temperature = getTemperature();
 }
+
 
 void loop() { 
-  testdrawstyles();
-  delay(500);
+  delay(1000);
+  if (digitalRead(BUTTON_PIN)) {
+    //Log trashing
+    //Calculate wasted coffee
+    brew = false;
+    empty = true;
+    cold = false;
+  }
+  else{
+    if (/*Noticeable changes*/) {
+      if (/* Weight change --*/) {
+        if (!cold) {
+          //coffeeUsed += weigth change
+          if (/*current weigth < 0*/) {
+            //pan gone ignore data back to wait
+          }
+          else if (/*current weight > 0*/) {
+            tempChange();
+          }
+          else {
+            brew = false;
+            empty = true;
+          }
+        }
+      }
+      else if (/* Weight change ++*/) {
+        if (empty) {
+          brew = true;
+          empty = false;
+          cold = true;
+        }
+        else {
+          tempChange();
+        }
+      }
+      else { //weight change ~0
+        tempChange();
+      }
+    }
+    else{
+      //pass
+    }
+  }
 }
 
-void testdrawstyles(void) {
-  double tempO = mlx.readObjectTempC();
-  double tempA = mlx.readAmbientTempC();
-  tempO = mlx.readObjectTempC();
-  tempA = mlx.readAmbientTempC();
-  temperature = bme.readTemperature();
-  humidity = bme.readHumidity();
-  double reading = 10;
+void tempchange(void) {
+  if (/*tempchange --*/) {
+    if (brew) {
+      //brewing done
+      brew = false;
+    }
+    else {
+      if (/*Coffee too cold*/) {
+        cold = true;
+      }
+    }
+  }
+  //Log: data,weight,temp
+  //Calculate: usage for current time
+  //Broadcast
+  //Print to screen
+}
+
+float getWeight(void) {
   if (scale.is_ready()) {
-    reading = scale.read();
-  } 
+    return scale.read();
+  }
+  else {
+    Serial.println(F("Waiting for weight sensor"));
+    delay(500);
+    return getWeight();
+  }
+}
 
-  display.clearDisplay();
-  display.setTextSize(1);             // Normal 1:1 pixel scale
-  display.setTextColor(SSD1306_WHITE);       // Draw white text
-  display.setCursor(0,0);             // Start at top-left corner
-
-  /* ir temperature */
-  display.print(F("Ambient: "));
-  display.println(tempA);
-  display.print(F("Target:  "));
-  display.println(tempO);
-
-  /* bme temperature */
-  display.print(F("Humidity:"));
-  display.println(humidity);
-  display.print(F("Temperat:"));
-  display.println(temperature);
-
-  /* hx711 weight */
-  display.print(F("Weight:  "));
-  display.println(reading);
-
-  /* Time */
-  display.print(F("Time:    "));
-  display.println(now());
-
-  display.display();
-
-
-  /* Serial printing */
-  /* Time, Ambient, Target, Weight */ 
-  Serial.print(now());
-  Serial.print(", ");
-  Serial.print(tempA);
-  Serial.print(", ");
-  Serial.print(tempO);
-  Serial.print(", ");
-  Serial.print(reading);
-  Serial.print("\n");
-
-
-
-  delay(300);
+double getTemperature(void) {
+  return mlx.readObjectTempC();
 }
