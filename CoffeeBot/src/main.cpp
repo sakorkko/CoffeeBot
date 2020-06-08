@@ -16,11 +16,12 @@
 #define SEALEVELPRESSURE_HPA (1013.25)
 
 // HX711 weight scale constants
-#define LOADCELL_DOUT_PIN = 4
-#define LOADCELL_SCK_PIN = 5
+#define LOADCELL_DOUT_PIN 4
+#define LOADCELL_SCK_PIN 5
+#define PAN_GONE_THRESHOLD 500
 
 // Button
-#define BUTTON_PIN = 123
+#define BUTTON_PIN    123 //CHANGE THIS
 
 // Define sensors
 Adafruit_BME280 bme;
@@ -37,13 +38,22 @@ boolean brew;
 boolean empty;
 boolean cold;
 float zeroed_weight;
-double zeroed_temperature;
+float zeroed_temperature;
+// checking is done by calculating mean of first and second half of list and comparing
+float weight_history[20];
+float temperature_history[20];
+float weight_mean[2]; //first 10 mean, last 10 mean
+float temperature_mean[2]; //first 10 mean, last 10 mean
 
 void tempChange(void);
 
 float getWeight(void);
 
-double getTemperature(void);
+float getTemperature(void);
+
+boolean calculateChanges(void);
+
+float average();
 
 void setup() {
   Serial.begin(9600);
@@ -76,14 +86,14 @@ void loop() {
     cold = false;
   }
   else{
-    if (/*Noticeable changes*/) {
-      if (/* Weight change --*/) {
+    if (calculateChanges(2, 200)) {
+      if ((weight_mean[0] - weight_mean[1]) < 300) {
         if (!cold) {
           //coffeeUsed += weigth change
-          if (/*current weigth < 0*/) {
+          if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
             //pan gone ignore data back to wait
           }
-          else if (/*current weight > 0*/) {
+          else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
             tempChange();
           }
           else {
@@ -92,7 +102,7 @@ void loop() {
           }
         }
       }
-      else if (/* Weight change ++*/) {
+      else if ((weight_mean[0] - weight_mean[1]) > 300) {
         if (empty) {
           brew = true;
           empty = false;
@@ -113,13 +123,14 @@ void loop() {
 }
 
 void tempchange(void) {
-  if (/*tempchange --*/) {
+  if (temperature_mean[0] < temperature_mean[1]) {
     if (brew) {
       //brewing done
       brew = false;
     }
     else {
-      if (/*Coffee too cold*/) {
+      if (getTemperature() < 35) {
+        // Coffee too cold
         cold = true;
       }
     }
@@ -141,6 +152,26 @@ float getWeight(void) {
   }
 }
 
-double getTemperature(void) {
-  return mlx.readObjectTempC();
+float getTemperature(void) {
+  return float(mlx.readObjectTempC());
+}
+
+boolean calculateChanges(float temperature_threshold = 2, float weight_threshold = 200) {
+  // True if noticeable changes, false if not
+  weight_mean[0] = average(weight_history[:9], 10);
+  weight_mean[1] = average(weight_history[10:], 10);
+  temperature_mean[0] = average(temperature_history[:9], 10);
+  temperature_mean[1] = average(temperature_history[10:], 10);
+  if (abs(weight_mean[0] - weight_mean[1]) > weight_threshold)
+    return true;
+  if (abs(temperature_mean[0] - temperature_mean[1]) > temperature_threshold)
+    return true;
+  return false;
+}
+
+float average (float * array, int len) {
+  double sum = 0;
+  for (int i = 0 ; i < len ; i++)
+    sum += double(array [i]);
+  return (float / len);
 }
