@@ -53,76 +53,9 @@ float getTemperature(void);
 
 boolean calculateChanges(void);
 
-float average();
+float average(float * array, int len);
 
-void setup() {
-  Serial.begin(9600);
-  mlx.begin();
-  bme.begin(0x76);
-  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-  pinMode(BUTTON_PIN, INPUT);
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-    Serial.println(F("SSD1306 allocation failed"));
-    for (;;); //Loop forever
-  }
-
-  display.display();  // the library initializes this with an Adafruit splash screen.
-  delay(1000);
-  display.clearDisplay();
-
-  //Zeroing 
-  zeroed_weight = getWeight();
-  zeroed_temperature = getTemperature();
-}
-
-
-void loop() { 
-  delay(1000);
-  if (digitalRead(BUTTON_PIN)) {
-    //Log trashing
-    //Calculate wasted coffee
-    brew = false;
-    empty = true;
-    cold = false;
-  }
-  else{
-    if (calculateChanges(2, 200)) {
-      if ((weight_mean[0] - weight_mean[1]) < 300) {
-        if (!cold) {
-          //coffeeUsed += weigth change
-          if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
-            //pan gone ignore data back to wait
-          }
-          else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
-            tempChange();
-          }
-          else {
-            brew = false;
-            empty = true;
-          }
-        }
-      }
-      else if ((weight_mean[0] - weight_mean[1]) > 300) {
-        if (empty) {
-          brew = true;
-          empty = false;
-          cold = true;
-        }
-        else {
-          tempChange();
-        }
-      }
-      else { //weight change ~0
-        tempChange();
-      }
-    }
-    else{
-      //pass
-    }
-  }
-}
-
-void tempchange(void) {
+void tempChange(void) {
   if (temperature_mean[0] < temperature_mean[1]) {
     if (brew) {
       //brewing done
@@ -156,12 +89,14 @@ float getTemperature(void) {
   return float(mlx.readObjectTempC());
 }
 
-boolean calculateChanges(float temperature_threshold = 2, float weight_threshold = 200) {
+boolean calculateChanges(void) {
   // True if noticeable changes, false if not
-  weight_mean[0] = average(weight_history[:9], 10);
-  weight_mean[1] = average(weight_history[10:], 10);
-  temperature_mean[0] = average(temperature_history[:9], 10);
-  temperature_mean[1] = average(temperature_history[10:], 10);
+  float temperature_threshold = 20;
+  float weight_threshold = 200;
+  weight_mean[0] = average(weight_history, 10);
+  weight_mean[1] = average((weight_history + 10), 10); // Can't use range expression in c++
+  temperature_mean[0] = average(temperature_history, 10);
+  temperature_mean[1] = average((temperature_history + 10), 10);
   if (abs(weight_mean[0] - weight_mean[1]) > weight_threshold)
     return true;
   if (abs(temperature_mean[0] - temperature_mean[1]) > temperature_threshold)
@@ -173,5 +108,71 @@ float average (float * array, int len) {
   double sum = 0;
   for (int i = 0 ; i < len ; i++)
     sum += double(array [i]);
-  return (float / len);
+  return ((float(sum)) / (float(len)));
+}
+
+void setup() {
+  Serial.begin(9600);
+  mlx.begin();
+  bme.begin(0x76);
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+  pinMode(BUTTON_PIN, INPUT);
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println(F("SSD1306 allocation failed"));
+    for (;;); //Loop forever
+  }
+
+  display.display();  // the library initializes this with an Adafruit splash screen.
+  delay(1000);
+  display.clearDisplay();
+
+  //Zeroing 
+  zeroed_weight = getWeight();
+  zeroed_temperature = getTemperature();
+}
+
+void loop() { 
+  delay(1000);
+  if (digitalRead(BUTTON_PIN)) {
+    //Log trashing
+    //Calculate wasted coffee
+    brew = false;
+    empty = true;
+    cold = false;
+  }
+  else{
+    if (calculateChanges()) {
+      if ((weight_mean[0] - weight_mean[1]) < 300) {
+        if (!cold) {
+          //coffeeUsed += weigth change
+          if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
+            //pan gone ignore data back to wait
+          }
+          else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
+            tempChange();
+          }
+          else {
+            brew = false;
+            empty = true;
+          }
+        }
+      }
+      else if ((weight_mean[0] - weight_mean[1]) > 300) {
+        if (empty) {
+          brew = true;
+          empty = false;
+          cold = true;
+        }
+        else {
+          tempChange();
+        }
+      }
+      else { //weight change ~0
+        tempChange();
+      }
+    }
+    else{
+      //pass
+    }
+  }
 }
