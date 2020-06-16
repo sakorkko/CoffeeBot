@@ -9,7 +9,7 @@
 #include <HX711.h>
 #include <TimeLib.h>
 
-// Oled screen constants
+// OLED screen constants
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 #define OLED_RESET      -1 //Share pin with arduino reset
@@ -20,7 +20,7 @@
 #define LOADCELL_SCK_PIN 5
 #define PAN_GONE_THRESHOLD 500
 
-// Button
+// Button pins
 #define BUTTON_PIN    123 //CHANGE THIS
 
 // Define sensors
@@ -29,7 +29,7 @@ Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 HX711 scale;
 
-// globals
+// Globals
 float temperature;
 float humidity;
 float pressure;
@@ -39,7 +39,7 @@ boolean empty;
 boolean cold;
 float zeroed_weight;
 float zeroed_temperature;
-// checking is done by calculating mean of first and second half of list and comparing
+// Checking is done by calculating mean of first and second half of list and comparing
 float weight_history[20];
 float temperature_history[20];
 float weight_mean[2]; //first 10 mean, last 10 mean
@@ -55,14 +55,18 @@ boolean calculateChanges(void);
 
 float average(float * array, int len);
 
+void updateScreen(void);
+
+void serialLogAllData(void);
+
 void tempChange(void) {
-  if (temperature_mean[0] < temperature_mean[1]) {
+  if (temperature_mean[0] < temperature_mean[1]) { // RATIO CONSTANT
     if (brew) {
-      //brewing done
+      // Brewing done
       brew = false;
     }
     else {
-      if (getTemperature() < 35) {
+      if (getTemperature() < 35) { // CONSTANT
         // Coffee too cold
         cold = true;
       }
@@ -71,7 +75,7 @@ void tempChange(void) {
   //Log: data,weight,temp
   //Calculate: usage for current time
   //Broadcast
-  //Print to screen
+  updateScreen(); // Note, maybe add updating screen elsewhere also
 }
 
 float getWeight(void) {
@@ -91,8 +95,8 @@ float getTemperature(void) {
 
 boolean calculateChanges(void) {
   // True if noticeable changes, false if not
-  float temperature_threshold = 20;
-  float weight_threshold = 200;
+  float temperature_threshold = 20; // CONSTANT
+  float weight_threshold = 200; // CONSTANT
   weight_mean[0] = average(weight_history, 10);
   weight_mean[1] = average((weight_history + 10), 10); // Can't use range expression in c++
   temperature_mean[0] = average(temperature_history, 10);
@@ -111,6 +115,35 @@ float average (float * array, int len) {
   return ((float(sum)) / (float(len)));
 }
 
+void updateScreen(void) {
+  // Prepare display
+  display.clearDisplay();
+  display.setTextSize(1); // 1:1 Pixel scale
+  display.setTextColor(SSD1306_WHITE); // White text
+  display.setCursor(0,0); // Top-left
+
+  // Print to serial monitor
+  Serial.print('Printing to the screen, the time is: ');
+  Serial.print(now());
+  Serial.print('\n');
+
+  // Input data to display
+  display.println("CoffeeBot");
+  display.print(F("Time: "));
+  display.println(now());
+  display.print(F("Temp: "));
+  display.println(temperature_history[0]);
+  display.print(F("Weigth: "));
+  display.println(weight_history[0]);
+
+  // Print to display
+  display.display();
+}
+
+void serialLogAllData(void) {
+  // Print everything here
+}
+
 void setup() {
   Serial.begin(9600);
   mlx.begin();
@@ -122,31 +155,32 @@ void setup() {
     for (;;); //Loop forever
   }
 
-  display.display();  // the library initializes this with an Adafruit splash screen.
+  display.display();  // The library initializes this with an Adafruit splash screen.
   delay(1000);
   display.clearDisplay();
 
-  //Zeroing 
+  // Zeroing 
   zeroed_weight = getWeight();
   zeroed_temperature = getTemperature();
 }
 
 void loop() { 
   delay(1000);
+  serialLogAllData(); // For debug purposes, look at logs and stuff
   if (digitalRead(BUTTON_PIN)) {
-    //Log trashing
-    //Calculate wasted coffee
+    // Log trashing
+    // Calculate wasted coffee
     brew = false;
     empty = true;
     cold = false;
   }
   else{
     if (calculateChanges()) {
-      if ((weight_mean[0] - weight_mean[1]) < 300) {
+      if ((weight_mean[0] - weight_mean[1]) < 300) { // CONSTANT
         if (!cold) {
-          //coffeeUsed += weigth change
+          // CoffeeUsed += weigth change
           if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
-            //pan gone ignore data back to wait
+            // Pan gone ignore data back to wait
           }
           else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
             tempChange();
@@ -167,12 +201,12 @@ void loop() {
           tempChange();
         }
       }
-      else { //weight change ~0
+      else { // Weight change ~0
         tempChange();
       }
     }
     else{
-      //pass
+      // Pass
     }
   }
 }
