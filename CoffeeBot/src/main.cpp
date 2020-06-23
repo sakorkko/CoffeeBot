@@ -8,6 +8,7 @@
 #include <Adafruit_BME280.h>
 #include <HX711.h>
 #include <TimeLib.h>
+#include <EEPROM.h>
 
 // OLED screen constants
 #define SCREEN_WIDTH    128
@@ -18,12 +19,18 @@
 // HX711 weight scale constants
 #define LOADCELL_DOUT_PIN 4
 #define LOADCELL_SCK_PIN 5
+
+// Weight thresholds
 #define PAN_GONE_THRESHOLD 500
+
+// Flash memory
+#define EEPROM_SIZE 128 // change me 
+#define WASTED_COFFEE_SLOT 0
 
 // Button pins
 #define BUTTON_PIN    123 //CHANGE THIS
 
-// Define sensors
+// Define sensors 
 Adafruit_BME280 bme;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -44,6 +51,8 @@ float weight_history[20];
 float temperature_history[20];
 float weight_mean[2]; //first 10 mean, last 10 mean
 float temperature_mean[2]; //first 10 mean, last 10 mean
+float used_coffee;
+float current_coffee;
 
 void tempChange(void);
 
@@ -142,10 +151,37 @@ void updateScreen(void) {
 
 void serialLogAllData(void) {
   // Print everything here
+  Serial.print('Weight history');
+  for (int i = 0 ; i < 20 ; i++) {
+    Serial.print(weight_history[i]);
+  };
+  Serial.print('Temperature history');
+  for (int i = 0 ; i < 20 ; i++) {
+    Serial.print(temperature_history[i]);
+  };
+  Serial.print('Zeroed weight');
+  Serial.print(zeroed_weight);
+  Serial.print('Zeroed temperature');
+  Serial.print(zeroed_temperature);
+  Serial.print('brew ' + brew);
+  Serial.print('epmty ' + empty);
+  Serial.print('cold ' + cold);
+  Serial.print('Weight_mean');
+  Serial.print(weight_mean[0] + ' ' + weight_mean[1]);
+  Serial.print('Temperature_mean');
+  Serial.print(temperature_mean[0] + ' ' + temperature_mean[1]);
+  Serial.print('EEPROM');
+  for (int i = 0 ; i < EEPROM_SIZE ; i++) {
+    Serial.print(EEPROM.read(i));
+  };
+  for (int i = 0 ; i < EEPROM_SIZE ; i++) {
+    Serial.print(EEPROM.readFloat(i));
+  };
 }
 
 void setup() {
   Serial.begin(9600);
+  EEPROM.begin(EEPROM_SIZE);
   mlx.begin();
   bme.begin(0x76);
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
@@ -169,7 +205,11 @@ void loop() {
   serialLogAllData(); // For debug purposes, look at logs and stuff
   if (digitalRead(BUTTON_PIN)) {
     // Log trashing
-    // Calculate wasted coffee
+    current_coffee += EEPROM.readFloat(WASTED_COFFEE_SLOT);
+    EEPROM.writeFloat(WASTED_COFFEE_SLOT, current_coffee);
+    EEPROM.commit();
+    current_coffee = 0;
+    used_coffee = 0;
     brew = false;
     empty = true;
     cold = false;
