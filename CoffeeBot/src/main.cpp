@@ -20,15 +20,16 @@
 #define LOADCELL_DOUT_PIN 4
 #define LOADCELL_SCK_PIN 5
 
-// Weight thresholds
+// Thresholds
 #define PAN_GONE_THRESHOLD 500
+// TODO DEFINE ALL OTHER THRESHOLDS HERE
 
 // Flash memory
 #define EEPROM_SIZE 128 // change me 
 #define WASTED_COFFEE_SLOT 0
 
 // Button pins
-#define BUTTON_PIN    123 //CHANGE THIS
+#define BUTTON_PIN    23
 
 // Define sensors 
 Adafruit_BME280 bme;
@@ -37,10 +38,6 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 HX711 scale;
 
 // Globals
-float temperature;
-float humidity;
-float pressure;
-float altitude; 
 boolean brew;
 boolean empty;
 boolean cold;
@@ -69,22 +66,23 @@ void updateScreen(void);
 void serialLogAllData(void);
 
 void tempChange(void) {
-  if (temperature_mean[0] < temperature_mean[1]) { // RATIO CONSTANT
+  if (temperature_mean[0] < temperature_mean[1]) { // todo RATIO CONSTANT
     if (brew) {
       // Brewing done
       brew = false;
     }
     else {
-      if (getTemperature() < 35) { // CONSTANT
+      if (getTemperature() < 35) { // todo CONSTANT
         // Coffee too cold
         cold = true;
       }
     }
   }
+  //TODO do this loggin below
   //Log: data,weight,temp
   //Calculate: usage for current time
   //Broadcast
-  updateScreen(); // Note, maybe add updating screen elsewhere also
+  updateScreen(); // Todo, maybe add updating screen elsewhere also
 }
 
 float getWeight(void) {
@@ -104,8 +102,8 @@ float getTemperature(void) {
 
 boolean calculateChanges(void) {
   // True if noticeable changes, false if not
-  float temperature_threshold = 20; // CONSTANT
-  float weight_threshold = 200; // CONSTANT
+  float temperature_threshold = 20; // todo CONSTANT move me
+  float weight_threshold = 200; // todo CONSTANT move me
   weight_mean[0] = average(weight_history, 10);
   weight_mean[1] = average((weight_history + 10), 10); // Can't use range expression in c++
   temperature_mean[0] = average(temperature_history, 10);
@@ -127,7 +125,7 @@ float average (float * array, int len) {
 void updateScreen(void) {
   // Prepare display
   display.clearDisplay();
-  display.setTextSize(1); // 1:1 Pixel scale
+  display.setTextSize(1); // todo make display prettier, btw display size is 128x64
   display.setTextColor(SSD1306_WHITE); // White text
   display.setCursor(0,0); // Top-left
 
@@ -170,7 +168,7 @@ void serialLogAllData(void) {
   Serial.print(weight_mean[0] + ' ' + weight_mean[1]);
   Serial.print('Temperature_mean');
   Serial.print(temperature_mean[0] + ' ' + temperature_mean[1]);
-  Serial.print('EEPROM');
+  Serial.print('EEPROM'); // todo make eeprom read write work
   for (int i = 0 ; i < EEPROM_SIZE ; i++) {
     Serial.print(EEPROM.read(i));
   };
@@ -183,7 +181,6 @@ void setup() {
   Serial.begin(9600);
   EEPROM.begin(EEPROM_SIZE);
   mlx.begin();
-  bme.begin(0x76);
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
   pinMode(BUTTON_PIN, INPUT);
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -191,7 +188,7 @@ void setup() {
     for (;;); //Loop forever
   }
 
-  display.display();  // The library initializes this with an Adafruit splash screen.
+  display.display();  // todo maybe change splash screen
   delay(1000);
   display.clearDisplay();
 
@@ -202,7 +199,7 @@ void setup() {
 
 void loop() { 
   delay(1000);
-  serialLogAllData(); // For debug purposes, look at logs and stuff
+  serialLogAllData(); // todo make printing this prettier
   if (digitalRead(BUTTON_PIN)) {
     // Log trashing
     current_coffee += EEPROM.readFloat(WASTED_COFFEE_SLOT);
@@ -216,9 +213,9 @@ void loop() {
   }
   else{
     if (calculateChanges()) {
-      if ((weight_mean[0] - weight_mean[1]) < 300) { // CONSTANT
+      if ((weight_mean[0] - weight_mean[1]) < 300) { // todo CONSTANT
         if (!cold) {
-          // CoffeeUsed += weigth change
+          // CoffeeUsed += weigth change // check that this is in state machine todo
           if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
             // Pan gone ignore data back to wait
           }
@@ -231,7 +228,7 @@ void loop() {
           }
         }
       }
-      else if ((weight_mean[0] - weight_mean[1]) > 300) {
+      else if ((weight_mean[0] - weight_mean[1]) > 300) { // todo constant
         if (empty) {
           brew = true;
           empty = false;

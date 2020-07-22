@@ -128,5 +128,4 @@ void loop() {
   // }
   // else {
   //   Serial.print("0");
-  }
 }
