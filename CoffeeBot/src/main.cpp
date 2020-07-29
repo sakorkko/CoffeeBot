@@ -65,6 +65,8 @@ void updateScreen(void);
 
 void serialLogAllData(void);
 
+void updateHistory(void);
+
 void tempChange(void) {
   if (temperature_mean[0] < temperature_mean[1]) { // todo RATIO CONSTANT
     if (brew) {
@@ -105,7 +107,7 @@ boolean calculateChanges(void) {
   float temperature_threshold = 20; // todo CONSTANT move me
   float weight_threshold = 200; // todo CONSTANT move me
   weight_mean[0] = average(weight_history, 10);
-  weight_mean[1] = average((weight_history + 10), 10); // Can't use range expression in c++
+  weight_mean[1] = average((weight_history + 10), 10); // Can"t use range expression in c++
   temperature_mean[0] = average(temperature_history, 10);
   temperature_mean[1] = average((temperature_history + 10), 10);
   if (abs(weight_mean[0] - weight_mean[1]) > weight_threshold)
@@ -130,9 +132,9 @@ void updateScreen(void) {
   display.setCursor(0,0); // Top-left
 
   // Print to serial monitor
-  Serial.print('Printing to the screen, the time is: ');
+  Serial.print("Printing to the screen, the time is: ");
   Serial.print(now());
-  Serial.print('\n');
+  Serial.print("\n");
 
   // Input data to display
   display.println("CoffeeBot");
@@ -149,26 +151,26 @@ void updateScreen(void) {
 
 void serialLogAllData(void) {
   // Print everything here
-  Serial.print('Weight history');
+  Serial.print("Weight history");
   for (int i = 0 ; i < 20 ; i++) {
     Serial.print(weight_history[i]);
   };
-  Serial.print('Temperature history');
+  Serial.print("Temperature history");
   for (int i = 0 ; i < 20 ; i++) {
     Serial.print(temperature_history[i]);
   };
-  Serial.print('Zeroed weight');
+  Serial.print("Zeroed weight");
   Serial.print(zeroed_weight);
-  Serial.print('Zeroed temperature');
+  Serial.print("Zeroed temperature");
   Serial.print(zeroed_temperature);
-  Serial.print('brew ' + brew);
-  Serial.print('epmty ' + empty);
-  Serial.print('cold ' + cold);
-  Serial.print('Weight_mean');
-  Serial.print(weight_mean[0] + ' ' + weight_mean[1]);
-  Serial.print('Temperature_mean');
-  Serial.print(temperature_mean[0] + ' ' + temperature_mean[1]);
-  Serial.print('EEPROM'); // todo make eeprom read write work
+  Serial.print("brew " + brew);
+  Serial.print("epmty " + empty);
+  Serial.print("cold " + cold);
+  Serial.print("Weight_mean");
+  Serial.print(String(weight_mean[0]) + " " + String(weight_mean[1]));
+  Serial.print("Temperature_mean");
+  Serial.print(String(temperature_mean[0]) + " " + String(temperature_mean[1]));
+  Serial.print("EEPROM"); // todo make eeprom read write work
   for (int i = 0 ; i < EEPROM_SIZE ; i++) {
     Serial.print(EEPROM.read(i));
   };
@@ -177,9 +179,16 @@ void serialLogAllData(void) {
   };
 }
 
+void updateHistory(void) {
+  memcpy(temperature_history, &temperature_history[1], sizeof(temperature_history) - sizeof(float));
+  temperature_history[20] = temperature;
+  memcpy(weight_history, &weight_history[1], sizeof(weight_history) - sizeof(float))
+  weight_history[20] = weight;
+}
+
 void setup() {
   Serial.begin(9600);
-  EEPROM.begin(EEPROM_SIZE);
+  // EEPROM.begin();
   mlx.begin();
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
   pinMode(BUTTON_PIN, INPUT);
@@ -197,9 +206,12 @@ void setup() {
   zeroed_temperature = getTemperature();
 }
 
-void loop() { 
+void loop() {
+  updateScreen();
   delay(1000);
   serialLogAllData(); // todo make printing this prettier
+  calculateChanges();
+  
   if (digitalRead(BUTTON_PIN)) {
     // Log trashing
     current_coffee += EEPROM.readFloat(WASTED_COFFEE_SLOT);
