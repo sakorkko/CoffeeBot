@@ -17,9 +17,6 @@
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 #define OLED_RESET      -1 //Share pin with arduino reset
-#define SEALEVELPRESSURE_HPA (1013.25)
-
-
 
 // HX711 weight scale constants
 #define LOADCELL_DOUT_PIN 4
@@ -38,6 +35,16 @@
 
 // Button pins
 #define BUTTON_PIN 23
+
+// EEPROM positions
+#define POS_INDEX             0    // uint 16
+#define POS_WEIGHT_RATIO      2    // float 32
+#define POS_WEIGHT_DIFF       6    // float 32
+#define POS_COFFEE_WASTED     10   // float 32
+#define POS_COFFEE_USED       14   // float 32
+#define POS_COFFEE_BREWED     18   // float 32 
+#define POS_ESTIMATE_START    22   // 7 x 24 x 2 x 3 Bytes
+#define POS_LOG_START         1030 // remaining spots
 
 // Define sensors 
 Adafruit_BME280 bme;
@@ -86,6 +93,22 @@ void updateHistory(void);
 uint32_t getCurrentTime(void);
 
 void listNetworks(void);
+
+void setupEeprom(void);
+
+void setupEeeprom(void) {
+  EEPROM.begin(4096);
+  EEPROM.writeUShort(POS_INDEX, POS_LOG_START);
+  EEPROM.writeFloat(POS_WEIGHT_DIFF, 123123);
+  EEPROM.writeFloat(POS_WEIGHT_RATIO, 123123);
+  EEPROM.writeFloat(POS_COFFEE_BREWED, 0);
+  EEPROM.writeFloat(POS_COFFEE_USED, 0);
+  EEPROM.writeFloat(POS_COFFEE_WASTED, 0);
+
+  if (!EEPROM.commit()) {
+    for (;;) Serial.print('Eeprom commit failed');
+  }
+}
 
 void tempChange(void) {
   if (temperature_mean[0] < temperature_mean[1] * TEMP_CHANGE_RATIO) {
@@ -274,7 +297,6 @@ void listNetworks() {
 
 void setup() {
   Serial.begin(9600);
-  // EEPROM.begin();
   mlx.begin();
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
   pinMode(BUTTON_PIN, INPUT);
@@ -287,10 +309,12 @@ void setup() {
   delay(1000);
   display.clearDisplay();
 
+  setupEeprom();
+
   // Zeroing 
   zeroed_weight = getWeight();
   zeroed_temperature = getTemperature();
-
+,
   for (int i = 0 ; i < 20 ; i++) {
     weight_history[i] = zeroed_weight;
     temperature_history[i] = zeroed_temperature;
