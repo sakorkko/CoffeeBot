@@ -9,12 +9,17 @@
 #include <HX711.h>
 #include <TimeLib.h>
 #include <EEPROM.h>
+#include <WiFi.h>
+#include "time.h"
+#include <SPI.h>
 
 // OLED screen constants
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 #define OLED_RESET      -1 //Share pin with arduino reset
 #define SEALEVELPRESSURE_HPA (1013.25)
+
+
 
 // HX711 weight scale constants
 #define LOADCELL_DOUT_PIN 4
@@ -54,6 +59,14 @@ float temperature_mean[2]; //first 10 mean, last 10 mean
 float used_coffee;
 float current_coffee;
 
+//Wifi settings
+const char* ssid     = "panoulu";
+
+//Time settings
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 10800;
+const int   daylightOffset_sec = 3600;
+
 void tempChange(void);
 
 float getWeight(void);
@@ -69,6 +82,10 @@ void updateScreen(void);
 void serialLogAllData(void);
 
 void updateHistory(void);
+
+uint32_t getCurrentTime(void);
+
+void listNetworks(void);
 
 void tempChange(void) {
   if (temperature_mean[0] < temperature_mean[1] * TEMP_CHANGE_RATIO) {
@@ -175,8 +192,10 @@ void serialLogAllData(void) {
   // Serial.println("cold " + cold);
   Serial.print("Weight_mean ");
   Serial.print(String(weight_mean[0]) + " " + String(weight_mean[1]));
-  Serial.print("    Temperature_mean ");
+  Serial.print("\t\tTemperature_mean ");
   Serial.print(String(temperature_mean[0]) + " " + String(temperature_mean[1]));
+  Serial.print("\t\tCurrent time ");
+  Serial.print(getCurrentTime());
   Serial.println();
   // Serial.print("EEPROM"); // todo make eeprom read write work
   // for (int i = 0 ; i < EEPROM_SIZE ; i++) {
@@ -195,6 +214,63 @@ void updateHistory(void) {
   memcpy(&weight_history[1], weight_history, sizeof(weight_history) - sizeof(float));
   weight_history[0] = weight;
 }
+
+void printMacAddress() {
+  // the MAC address of your Wifi shield
+  byte mac[6];                     
+
+  // print your MAC address:
+  WiFi.macAddress(mac);
+  Serial.print("MAC: ");
+  Serial.print(mac[5],HEX);
+  Serial.print(":");
+  Serial.print(mac[4],HEX);
+  Serial.print(":");
+  Serial.print(mac[3],HEX);
+  Serial.print(":");
+  Serial.print(mac[2],HEX);
+  Serial.print(":");
+  Serial.print(mac[1],HEX);
+  Serial.print(":");
+  Serial.println(mac[0],HEX);
+}
+
+uint32_t getCurrentTime(){
+  struct tm timeinfo;
+  time_t current;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return 0;
+  }
+  time(&current);
+  return current;
+}
+
+void listNetworks() {
+  // scan for nearby networks:
+  Serial.println("** Scan Networks **");
+  int numSsid = WiFi.scanNetworks();
+  if (numSsid == -1)
+  { 
+    Serial.println("Couldn't get a wifi connection");
+    while(true);
+  } 
+
+  // print the list of networks seen:
+  Serial.print("number of available networks:");
+  Serial.println(numSsid);
+
+  // print the network number and name for each network found:
+  for (int thisNet = 0; thisNet<numSsid; thisNet++) {
+    Serial.print(thisNet);
+    Serial.print(") ");
+    Serial.print(WiFi.SSID(thisNet));
+    Serial.print("\tSignal: ");
+    Serial.println(WiFi.RSSI(thisNet));
+
+  }
+}
+
 
 void setup() {
   Serial.begin(9600);
@@ -219,6 +295,18 @@ void setup() {
     weight_history[i] = zeroed_weight;
     temperature_history[i] = zeroed_temperature;
   };
+
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected.");
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  getCurrentTime();
 }
 
 void loop() {
