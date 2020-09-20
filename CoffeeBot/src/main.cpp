@@ -21,15 +21,18 @@
 #define LOADCELL_SCK_PIN 5
 
 // Thresholds
+#define TEMPERATURE_TRESHOLD 20
+#define WEIGHT_TRESHHOLD 200
 #define PAN_GONE_THRESHOLD 500
-// TODO DEFINE ALL OTHER THRESHOLDS HERE
+#define TEMP_CHANGE_RATIO 0.01
+#define COLD_COFFEE_TEMPERATURE 35
 
 // Flash memory
 #define EEPROM_SIZE 128 // change me 
 #define WASTED_COFFEE_SLOT 0
 
 // Button pins
-#define BUTTON_PIN    23
+#define BUTTON_PIN 23
 
 // Define sensors 
 Adafruit_BME280 bme;
@@ -68,13 +71,13 @@ void serialLogAllData(void);
 void updateHistory(void);
 
 void tempChange(void) {
-  if (temperature_mean[0] < temperature_mean[1]) { // todo RATIO CONSTANT
+  if (temperature_mean[0] < temperature_mean[1] * TEMP_CHANGE_RATIO) {
     if (brew) {
       // Brewing done
       brew = false;
     }
     else {
-      if (getTemperature() < 35) { // todo CONSTANT
+      if (getTemperature() < COLD_COFFEE_TEMPERATURE) {
         // Coffee too cold
         cold = true;
       }
@@ -104,15 +107,13 @@ float getTemperature(void) {
 
 boolean calculateChanges(void) {
   // True if noticeable changes, false if not
-  float temperature_threshold = 20; // todo CONSTANT move me
-  float weight_threshold = 200; // todo CONSTANT move me
   weight_mean[0] = average(weight_history, 10);
-  weight_mean[1] = average((weight_history + 10), 10); // Can"t use range expression in c++
+  weight_mean[1] = average((weight_history + 10), 10);
   temperature_mean[0] = average(temperature_history, 10);
   temperature_mean[1] = average((temperature_history + 10), 10);
-  if (abs(weight_mean[0] - weight_mean[1]) > weight_threshold)
+  if (abs(weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHHOLD)
     return true;
-  if (abs(temperature_mean[0] - temperature_mean[1]) > temperature_threshold)
+  if (abs(temperature_mean[0] - temperature_mean[1]) > TEMPERATURE_TRESHOLD)
     return true;
   return false;
 }
@@ -132,9 +133,9 @@ void updateScreen(void) {
   display.setCursor(0,0); // Top-left
 
   // Print to serial monitor
-  Serial.print("Printing to the screen, the time is: ");
-  Serial.print(now());
-  Serial.print("\n");
+  // Serial.print("Printing to the screen, the time is: ");
+  // Serial.print(now());
+  // Serial.print("\n");
 
   // Input data to display
   display.println("CoffeeBot");
@@ -151,39 +152,48 @@ void updateScreen(void) {
 
 void serialLogAllData(void) {
   // Print everything here
-  Serial.print("Weight history");
-  for (int i = 0 ; i < 20 ; i++) {
-    Serial.print(weight_history[i]);
-  };
-  Serial.print("Temperature history");
-  for (int i = 0 ; i < 20 ; i++) {
-    Serial.print(temperature_history[i]);
-  };
-  Serial.print("Zeroed weight");
-  Serial.print(zeroed_weight);
-  Serial.print("Zeroed temperature");
-  Serial.print(zeroed_temperature);
-  Serial.print("brew " + brew);
-  Serial.print("epmty " + empty);
-  Serial.print("cold " + cold);
-  Serial.print("Weight_mean");
+  // Serial.print("Weight history ");
+  // for (int i = 0 ; i < 20 ; i++) {
+  //   Serial.print(weight_history[i]);
+  //   Serial.print(' ');
+  // };
+  // Serial.println();
+  // Serial.print("Temperature history ");
+  // for (int i = 0 ; i < 20 ; i++) {
+  //   Serial.print(temperature_history[i]);
+  //   Serial.print(' ');
+  // };
+  // Serial.println();
+  // Serial.print("Zeroed weight ");
+  // Serial.print(zeroed_weight);
+  // Serial.println();
+  // Serial.print("Zeroed temperature ");
+  // Serial.print(zeroed_temperature);
+  // Serial.println();
+  // Serial.println("brew " + brew);
+  // Serial.println("epmty " + empty);
+  // Serial.println("cold " + cold);
+  Serial.print("Weight_mean ");
   Serial.print(String(weight_mean[0]) + " " + String(weight_mean[1]));
-  Serial.print("Temperature_mean");
+  Serial.print("    Temperature_mean ");
   Serial.print(String(temperature_mean[0]) + " " + String(temperature_mean[1]));
-  Serial.print("EEPROM"); // todo make eeprom read write work
-  for (int i = 0 ; i < EEPROM_SIZE ; i++) {
-    Serial.print(EEPROM.read(i));
-  };
-  for (int i = 0 ; i < EEPROM_SIZE ; i++) {
-    Serial.print(EEPROM.readFloat(i));
-  };
+  Serial.println();
+  // Serial.print("EEPROM"); // todo make eeprom read write work
+  // for (int i = 0 ; i < EEPROM_SIZE ; i++) {
+  //   Serial.print(EEPROM.read(i));
+  // };
+  // for (int i = 0 ; i < EEPROM_SIZE ; i++) {
+  //   Serial.print(EEPROM.readFloat(i));
+  // };
 }
 
 void updateHistory(void) {
-  memcpy(temperature_history, &temperature_history[1], sizeof(temperature_history) - sizeof(float));
-  temperature_history[20] = temperature;
-  memcpy(weight_history, &weight_history[1], sizeof(weight_history) - sizeof(float))
-  weight_history[20] = weight;
+  float temperature = getTemperature();
+  float weight = getWeight();
+  memcpy(&temperature_history[1], temperature_history, sizeof(temperature_history) - sizeof(float));
+  temperature_history[0] = temperature;
+  memcpy(&weight_history[1], weight_history, sizeof(weight_history) - sizeof(float));
+  weight_history[0] = weight;
 }
 
 void setup() {
@@ -204,11 +214,17 @@ void setup() {
   // Zeroing 
   zeroed_weight = getWeight();
   zeroed_temperature = getTemperature();
+
+  for (int i = 0 ; i < 20 ; i++) {
+    weight_history[i] = zeroed_weight;
+    temperature_history[i] = zeroed_temperature;
+  };
 }
 
 void loop() {
   updateScreen();
-  delay(1000);
+  updateHistory();
+  delay(100);
   serialLogAllData(); // todo make printing this prettier
   calculateChanges();
   
@@ -225,7 +241,7 @@ void loop() {
   }
   else{
     if (calculateChanges()) {
-      if ((weight_mean[0] - weight_mean[1]) < 300) { // todo CONSTANT
+      if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHHOLD) {
         if (!cold) {
           // CoffeeUsed += weigth change // check that this is in state machine todo
           if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
@@ -240,7 +256,7 @@ void loop() {
           }
         }
       }
-      else if ((weight_mean[0] - weight_mean[1]) > 300) { // todo constant
+      else if ((weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHHOLD) {
         if (empty) {
           brew = true;
           empty = false;
