@@ -56,6 +56,7 @@ HX711 scale;
 boolean brew;
 boolean empty;
 boolean cold;
+uint32_t last_half_hour;
 float zeroed_weight;
 float zeroed_temperature;
 // Checking is done by calculating mean of first and second half of list and comparing
@@ -95,6 +96,24 @@ uint32_t getCurrentTime(void);
 void listNetworks(void);
 
 void setupEeprom(void);
+
+void checkAndUpdateEstimate(void);
+
+void checkAndUpdateEstimate(void) {
+  if (getEspTime() > last_half_hour + 1800) {
+    Serial.println(F("Half hour passed, calculating estimates"));
+    const uint32_t half = (getEspTime() / 1800 - (3*24*2)) % (7*48);
+    const uint8_t saved_count = EEPROM.readUChar(POS_ESTIMATE_START + half);
+    const uint16_t saved_amount = EEPROM.readUShort(POS_ESTIMATE_START + half + 1);
+    const uint16_t new_amount = saved_amount * saved_count + used_coffee_in_cl;
+    used_coffee_in_cl = 0;
+    EEPROM.writeUChar(POS_ESTIMATE_START + half, saved_count + 1);
+    EEPROM.writeUShort(POS_ESTIMATE_START + half + 1, new_amount);
+    updateEspTime();
+    const uint32_t current_time = getEspTime();
+    last_half_hour = current_time - current_time % 1800;
+  }
+}
 
 void setupEeeprom(void) {
   EEPROM.begin(4096);
@@ -314,7 +333,6 @@ void setup() {
   // Zeroing 
   zeroed_weight = getWeight();
   zeroed_temperature = getTemperature();
-,
   for (int i = 0 ; i < 20 ; i++) {
     weight_history[i] = zeroed_weight;
     temperature_history[i] = zeroed_temperature;
@@ -329,7 +347,6 @@ void setup() {
   }
   Serial.println("");
   Serial.println("WiFi connected.");
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   getCurrentTime();
 }
 
@@ -338,6 +355,7 @@ void loop() {
   updateHistory();
   delay(100);
   serialLogAllData(); // todo make printing this prettier
+  checkAndUpdateEstimate();
   calculateChanges();
   
   if (digitalRead(BUTTON_PIN)) {
