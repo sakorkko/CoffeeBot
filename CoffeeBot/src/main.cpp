@@ -17,9 +17,6 @@
 #define SCREEN_WIDTH    128
 #define SCREEN_HEIGHT   64
 #define OLED_RESET      -1 //Share pin with arduino reset
-#define SEALEVELPRESSURE_HPA (1013.25)
-
-
 
 // HX711 weight scale constants
 #define LOADCELL_DOUT_PIN 4
@@ -39,6 +36,16 @@
 // Button pins
 #define BUTTON_PIN 23
 
+// EEPROM positions
+#define POS_INDEX             0    // uint 16
+#define POS_WEIGHT_RATIO      2    // float 32
+#define POS_WEIGHT_DIFF       6    // float 32
+#define POS_COFFEE_WASTED     10   // float 32
+#define POS_COFFEE_USED       14   // float 32
+#define POS_COFFEE_BREWED     18   // float 32 
+#define POS_ESTIMATE_START    22   // 7 x 24 x 2 x 3 Bytes
+#define POS_LOG_START         1030 // remaining spots
+
 // Define sensors 
 Adafruit_BME280 bme;
 Adafruit_MLX90614 mlx = Adafruit_MLX90614();
@@ -49,6 +56,7 @@ HX711 scale;
 boolean brew;
 boolean empty;
 boolean cold;
+uint32_t last_half_hour;
 float zeroed_weight;
 float zeroed_temperature;
 // Checking is done by calculating mean of first and second half of list and comparing
@@ -89,6 +97,40 @@ uint32_t getEspTIme(void);
 void updateEspTIme(void);
 
 void listNetworks(void);
+
+void setupEeprom(void);
+
+void checkAndUpdateEstimate(void);
+
+void checkAndUpdateEstimate(void) {
+  if (getEspTime() > last_half_hour + 1800) {
+    Serial.println(F("Half hour passed, calculating estimates"));
+    const uint32_t half = (getEspTime() / 1800 - (3*24*2)) % (7*48);
+    const uint8_t saved_count = EEPROM.readUChar(POS_ESTIMATE_START + half);
+    const uint16_t saved_amount = EEPROM.readUShort(POS_ESTIMATE_START + half + 1);
+    const uint16_t new_amount = saved_amount * saved_count + used_coffee_in_cl;
+    used_coffee_in_cl = 0;
+    EEPROM.writeUChar(POS_ESTIMATE_START + half, saved_count + 1);
+    EEPROM.writeUShort(POS_ESTIMATE_START + half + 1, new_amount);
+    updateEspTime();
+    const uint32_t current_time = getEspTime();
+    last_half_hour = current_time - current_time % 1800;
+  }
+}
+
+void setupEeeprom(void) {
+  EEPROM.begin(4096);
+  EEPROM.writeUShort(POS_INDEX, POS_LOG_START);
+  EEPROM.writeFloat(POS_WEIGHT_DIFF, 123123);
+  EEPROM.writeFloat(POS_WEIGHT_RATIO, 123123);
+  EEPROM.writeFloat(POS_COFFEE_BREWED, 0);
+  EEPROM.writeFloat(POS_COFFEE_USED, 0);
+  EEPROM.writeFloat(POS_COFFEE_WASTED, 0);
+
+  if (!EEPROM.commit()) {
+    for (;;) Serial.print('Eeprom commit failed');
+  }
+}
 
 void tempChange(void) {
   if (temperature_mean[0] < temperature_mean[1] * TEMP_CHANGE_RATIO) {
@@ -282,7 +324,6 @@ void listNetworks() {
 
 void setup() {
   Serial.begin(9600);
-  // EEPROM.begin();
   mlx.begin();
   scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
   pinMode(BUTTON_PIN, INPUT);
@@ -295,10 +336,11 @@ void setup() {
   delay(1000);
   display.clearDisplay();
 
+  setupEeprom();
+
   // Zeroing 
   zeroed_weight = getWeight();
   zeroed_temperature = getTemperature();
-
   for (int i = 0 ; i < 20 ; i++) {
     weight_history[i] = zeroed_weight;
     temperature_history[i] = zeroed_temperature;
@@ -316,6 +358,7 @@ void setup() {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   updateEspTIme();
   getEspTIme();
+
 }
 
 void loop() {
@@ -323,6 +366,7 @@ void loop() {
   updateHistory();
   delay(100);
   serialLogAllData(); // todo make printing this prettier
+  checkAndUpdateEstimate();
   calculateChanges();
   
   if (digitalRead(BUTTON_PIN)) {
