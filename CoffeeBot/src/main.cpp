@@ -74,6 +74,8 @@ const char* ssid     = "panoulu";
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 10800;
 const int   daylightOffset_sec = 3600;
+uint32_t ntpTime = 0;
+unsigned long previousMillis = 0;
 
 void tempChange(void);
 
@@ -91,7 +93,8 @@ void serialLogAllData(void);
 
 void updateHistory(void);
 
-uint32_t getCurrentTime(void);
+uint32_t getEspTIme(void);
+void updateEspTIme(void);
 
 void listNetworks(void);
 
@@ -237,7 +240,7 @@ void serialLogAllData(void) {
   Serial.print("\t\tTemperature_mean ");
   Serial.print(String(temperature_mean[0]) + " " + String(temperature_mean[1]));
   Serial.print("\t\tCurrent time ");
-  Serial.print(getCurrentTime());
+  Serial.print(getEspTIme());
   Serial.println();
   // Serial.print("EEPROM"); // todo make eeprom read write work
   // for (int i = 0 ; i < EEPROM_SIZE ; i++) {
@@ -277,15 +280,20 @@ void printMacAddress() {
   Serial.println(mac[0],HEX);
 }
 
-uint32_t getCurrentTime(){
+uint32_t getEspTIme(){
+  return ntpTime + ((millis()- previousMillis)/1000);
+}
+
+void updateEspTIme(){
   struct tm timeinfo;
   time_t current;
   if(!getLocalTime(&timeinfo)){
     Serial.println("Failed to obtain time");
-    return 0;
+    return;
   }
   time(&current);
-  return current;
+  ntpTime = current;
+  previousMillis = millis();
 }
 
 void listNetworks() {
@@ -347,7 +355,10 @@ void setup() {
   }
   Serial.println("");
   Serial.println("WiFi connected.");
-  getCurrentTime();
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  updateEspTIme();
+  getEspTIme();
+
 }
 
 void loop() {
