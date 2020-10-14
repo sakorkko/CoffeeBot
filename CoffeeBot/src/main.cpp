@@ -28,6 +28,7 @@
 #define PAN_GONE_THRESHOLD 500
 #define TEMP_CHANGE_RATIO 0.01
 #define COLD_COFFEE_TEMPERATURE 35
+#define WEIGHT_TO_CL_RATIO 500
 
 // Flash memory
 #define EEPROM_SIZE 128 // change me 
@@ -93,8 +94,9 @@ void serialLogAllData(void);
 
 void updateHistory(void);
 
-uint32_t getEspTIme(void);
-void updateEspTIme(void);
+uint32_t getEspTime(void);
+
+void updateEspTime(void);
 
 void listNetworks(void);
 
@@ -105,11 +107,13 @@ void checkAndUpdateEstimate(void);
 void checkAndUpdateEstimate(void) {
   if (getEspTime() > last_half_hour + 1800) {
     Serial.println(F("Half hour passed, calculating estimates"));
-    const uint32_t half = (getEspTime() / 1800 - (3*24*2)) % (7*48);
+    const uint32_t half = ((getEspTime() / 1800) - (3*24*2)) % (7*48);
     const uint8_t saved_count = EEPROM.readUChar(POS_ESTIMATE_START + half);
+    const uint8_t new_count = saved_count + 1;
     const uint16_t saved_amount = EEPROM.readUShort(POS_ESTIMATE_START + half + 1);
-    const uint16_t new_amount = saved_amount * saved_count + used_coffee_in_cl;
-    used_coffee_in_cl = 0;
+    const uint16_t used_coffee_in_cl = used_coffee / WEIGHT_TO_CL_RATIO;
+
+    const uint16_t new_amount = (saved_amount * saved_count + used_coffee_in_cl) / new_count;
     EEPROM.writeUChar(POS_ESTIMATE_START + half, saved_count + 1);
     EEPROM.writeUShort(POS_ESTIMATE_START + half + 1, new_amount);
     updateEspTime();
