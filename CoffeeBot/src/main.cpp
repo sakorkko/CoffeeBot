@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "ArduinoTimer.h"
 #include <Wire.h>
 #include <Adafruit_MLX90614.h>
 #include <SPI.h>
@@ -71,12 +72,20 @@ float current_coffee;
 //Wifi settings
 const char* ssid     = "panoulu";
 
+//WiFi server
+const uint ServerPort = 23;
+WiFiServer Server(ServerPort);
+WiFiClient RemoteClient;
+
 //Time settings
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 10800;
 const int   daylightOffset_sec = 3600;
 uint32_t ntpTime = 0;
 unsigned long previousMillis = 0;
+
+//Loop timer
+ArduinoTimer SendTimer;
 
 void tempChange(void);
 
@@ -103,6 +112,28 @@ void listNetworks(void);
 void setupEeprom(void);
 
 void checkAndUpdateEstimate(void);
+
+void CheckForConnections(void);
+ 
+void CheckForConnections()
+{
+  if (Server.hasClient())
+  {
+    // If we are already connected to another computer, 
+    // then reject the new connection. Otherwise accept
+    // the connection. 
+    if (RemoteClient.connected())
+    {
+      RemoteClient.stop();
+      Serial.println("Connection switched");
+      //Server.available().stop();
+    }
+    Serial.println("Connection accepted");
+    RemoteClient = Server.available();
+    RemoteClient.write("Hello world");   
+    
+  }
+}
 
 uint32_t getEspTime(){
   return ntpTime + ((millis()- previousMillis)/1000);
@@ -321,7 +352,6 @@ void listNetworks() {
     Serial.print(WiFi.SSID(thisNet));
     Serial.print("\tSignal: ");
     Serial.println(WiFi.RSSI(thisNet));
-
   }
 }
 
@@ -362,61 +392,66 @@ void setup() {
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
   updateEspTime();
   getEspTime();
+  Server.begin();
 
 }
 
 void loop() {
-  updateScreen();
-  updateHistory();
-  delay(100);
-  serialLogAllData(); // todo make printing this prettier
-  checkAndUpdateEstimate();
-  calculateChanges();
-  
-  if (digitalRead(BUTTON_PIN)) {
-    // Log trashing
-    current_coffee += EEPROM.readFloat(WASTED_COFFEE_SLOT);
-    EEPROM.writeFloat(WASTED_COFFEE_SLOT, current_coffee);
-    EEPROM.commit();
-    current_coffee = 0;
-    used_coffee = 0;
-    brew = false;
-    empty = true;
-    cold = false;
-  }
-  else{
-    if (calculateChanges()) {
-      if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHHOLD) {
-        if (!cold) {
-          // CoffeeUsed += weigth change // check that this is in state machine todo
-          if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
-            // Pan gone ignore data back to wait
+  CheckForConnections();
+
+  if(SendTimer.TimePassed_Milliseconds(100)){
+
+    updateScreen();
+    updateHistory();
+    serialLogAllData(); // todo make printing this prettier
+    checkAndUpdateEstimate();
+    calculateChanges();
+    
+    if (digitalRead(BUTTON_PIN)) {
+      // Log trashing
+      current_coffee += EEPROM.readFloat(WASTED_COFFEE_SLOT);
+      EEPROM.writeFloat(WASTED_COFFEE_SLOT, current_coffee);
+      EEPROM.commit();
+      current_coffee = 0;
+      used_coffee = 0;
+      brew = false;
+      empty = true;
+      cold = false;
+    }
+    else{
+      if (calculateChanges()) {
+        if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHHOLD) {
+          if (!cold) {
+            // CoffeeUsed += weigth change // check that this is in state machine todo
+            if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
+              // Pan gone ignore data back to wait
+            }
+            else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
+              tempChange();
+            }
+            else {
+              brew = false;
+              empty = true;
+            }
           }
-          else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
-            tempChange();
+        }
+        else if ((weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHHOLD) {
+          if (empty) {
+            brew = true;
+            empty = false;
+            cold = true;
           }
           else {
-            brew = false;
-            empty = true;
+            tempChange();
           }
         }
-      }
-      else if ((weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHHOLD) {
-        if (empty) {
-          brew = true;
-          empty = false;
-          cold = true;
-        }
-        else {
+        else { // Weight change ~0
           tempChange();
         }
       }
-      else { // Weight change ~0
-        tempChange();
+      else{
+        // Pass
       }
-    }
-    else{
-      // Pass
     }
   }
 }
