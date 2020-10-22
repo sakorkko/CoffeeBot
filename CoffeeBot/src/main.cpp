@@ -117,20 +117,22 @@ void CheckForConnections(void);
  
 void CheckForConnections()
 {
+  RemoteClient = Server.available();
   if (Server.hasClient())
   {
     // If we are already connected to another computer, 
     // then reject the new connection. Otherwise accept
     // the connection. 
+    Serial.println("Connection accepted");
+    RemoteClient = Server.available();
+    RemoteClient.write("Hello world"); 
     if (RemoteClient.connected())
     {
       RemoteClient.stop();
       Serial.println("Connection switched");
       //Server.available().stop();
     }
-    Serial.println("Connection accepted");
-    RemoteClient = Server.available();
-    RemoteClient.write("Hello world");   
+      
     
   }
 }
@@ -403,9 +405,9 @@ void loop() {
 
     updateScreen();
     updateHistory();
+    calculateChanges();
     serialLogAllData(); // todo make printing this prettier
     checkAndUpdateEstimate();
-    calculateChanges();
     
     if (digitalRead(BUTTON_PIN)) {
       // Log trashing
