@@ -138,7 +138,10 @@ void CheckForConnections()
 }
 
 uint32_t getEspTime(){
-  return ntpTime + ((millis()- previousMillis)/1000);
+  const uint32_t time = ntpTime + ((millis()- previousMillis)/1000);
+  Serial.print(F("getEspTime(time) => "));
+  Serial.println(time);
+  return time;
 }
 
 void updateEspTime(){
@@ -151,17 +154,25 @@ void updateEspTime(){
   time(&current);
   ntpTime = current;
   previousMillis = millis();
+  Serial.print(F("updateEspTime(ntptime) => "));
+  Serial.println(ntpTime);
+  Serial.print(F("updateEspTime(previousmillis) => "));
+  Serial.println(previousMillis);
 }
 
 void checkAndUpdateEstimate(void) {
   if (getEspTime() > last_half_hour + 1800) {
-    Serial.println(F("Half hour passed, calculating estimates"));
     const uint32_t half = ((getEspTime() / 1800) - (3*24*2)) % (7*48);
     const uint8_t saved_count = EEPROM.readUChar(POS_ESTIMATE_START + half);
     const uint8_t new_count = saved_count + 1;
+    Serial.println("Saved_count = " + String(saved_count));
     const uint16_t saved_amount = EEPROM.readUShort(POS_ESTIMATE_START + half + 1);
     const uint16_t used_coffee_in_cl = used_coffee / WEIGHT_TO_CL_RATIO;
-
+    Serial.println(String(saved_amount) + " " + String(saved_count) + " " + String(used_coffee_in_cl) + " " + String(new_count));
+    if(new_count == 0) {
+      Serial.println('Hmm, new_count seems to be 0, skip for now...');
+      return;
+    }
     const uint16_t new_amount = (saved_amount * saved_count + used_coffee_in_cl) / new_count;
     EEPROM.writeUChar(POS_ESTIMATE_START + half, saved_count + 1);
     EEPROM.writeUShort(POS_ESTIMATE_START + half + 1, new_amount);
@@ -288,13 +299,9 @@ void serialLogAllData(void) {
   // Serial.println("brew " + brew);
   // Serial.println("epmty " + empty);
   // Serial.println("cold " + cold);
-  Serial.print("Weight_mean ");
-  Serial.print(String(weight_mean[0]) + " " + String(weight_mean[1]));
-  Serial.print("\t\tTemperature_mean ");
-  Serial.print(String(temperature_mean[0]) + " " + String(temperature_mean[1]));
-  Serial.print("\t\tCurrent time ");
-  Serial.print(getEspTime());
-  Serial.println();
+  Serial.println("Weight_mean " + String(weight_mean[0]) + " " + String(weight_mean[1]));
+  Serial.println("Temperature mean " + String(temperature_mean[0]) + " " + String(temperature_mean[1]));
+  Serial.println("Current time " + String(getEspTime()));
   // Serial.print("EEPROM"); // todo make eeprom read write work
   // for (int i = 0 ; i < EEPROM_SIZE ; i++) {
   //   Serial.print(EEPROM.read(i));
