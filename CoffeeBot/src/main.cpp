@@ -118,7 +118,7 @@ void CheckForConnections(void);
 void CheckForConnections()
 {
   RemoteClient = Server.available();
-  if (Server.hasClient())
+  if (RemoteClient.connected())
   {
     // If we are already connected to another computer, 
     // then reject the new connection. Otherwise accept
