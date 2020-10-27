@@ -70,7 +70,8 @@ float used_coffee;
 float current_coffee;
 
 //Wifi settings
-const char* ssid     = "wslothlan";
+const char* ssid     = "OTiT";
+const char* wlan_pass = "oh8taoh8ta";
 
 //WiFi server
 const uint ServerPort = 23;
@@ -163,24 +164,21 @@ void updateEspTime(){
 void checkAndUpdateEstimate(void) {
   const uint32_t current_time = getEspTime();
   if (current_time > (last_half_hour + 1800)) {
-    Serial.print("Half hour passed, lets calculate weekly estimates. last_half_hour => ");
-    Serial.println(last_half_hour);
+    Serial.print("Half hour passed, lets calculate weekly estimates. ");
     const uint32_t half = ((current_time / 1800) - (3*24*2)) % (7*48);
     const uint8_t saved_count = EEPROM.readUChar(POS_ESTIMATE_START + half);
     const uint8_t new_count = saved_count + 1;
-    // Serial.println("Saved_count = " + String(saved_count));
     const uint16_t saved_amount = EEPROM.readUShort(POS_ESTIMATE_START + half + 1);
     const uint16_t used_coffee_in_cl = used_coffee / WEIGHT_TO_CL_RATIO;
-    Serial.println(String(saved_amount) + " " + String(saved_count) + " " + String(used_coffee_in_cl) + " " + String(new_count));
+    Serial.println("savedAmount:" + String(saved_amount) + " savedCount:" + String(saved_count) + " newAmountSaved:" + String(used_coffee_in_cl) + " newCountSaved:" + String(new_count));
     if(new_count == 0) {
       Serial.println("Hmm, new_count seems to be 0, skip for now...");
       return;
     }
     const uint16_t new_amount = (saved_amount * saved_count + used_coffee_in_cl) / new_count;
-    EEPROM.writeUChar(POS_ESTIMATE_START + half, saved_count + 1);
+    Serial.println("saving amount: " + String(new_amount));
+    EEPROM.writeUChar(POS_ESTIMATE_START + half, new_count);
     EEPROM.writeUShort(POS_ESTIMATE_START + half + 1, new_amount);
-    updateEspTime();
-    const uint32_t current_time = getEspTime();
     last_half_hour = current_time - current_time % 1800;
   }
   else {
@@ -197,7 +195,10 @@ void setupEeprom(void) {
   EEPROM.writeFloat(POS_COFFEE_BREWED, 0);
   EEPROM.writeFloat(POS_COFFEE_USED, 0);
   EEPROM.writeFloat(POS_COFFEE_WASTED, 0);
-
+  for (size_t i = 0; i < POS_LOG_START; i++)
+  {
+    EEPROM.writeByte(i, 0);
+  }
   if (!EEPROM.commit()) {
     for (;;) Serial.print(F("commit failed"));
   }
@@ -224,14 +225,11 @@ void tempChange(void) {
 }
 
 float getWeight(void) {
-  if (scale.is_ready()) {
-    return scale.read();
-  }
-  else {
+  while(!scale.is_ready()) {
     Serial.println(F("Waiting for weight sensor"));
     delay(500);
-    return getWeight();
   }
+  return scale.read();
 }
 
 float getTemperature(void) {
@@ -402,7 +400,7 @@ void setup() {
   // Wireless
   Serial.print("Connecting to ");
   Serial.println(ssid);
-  WiFi.begin(ssid);
+  WiFi.begin(ssid, wlan_pass);
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
@@ -423,7 +421,7 @@ void setup() {
 void loop() {
   CheckForConnections();
 
-  if(SendTimer.TimePassed_Milliseconds(100)){
+  if(SendTimer.TimePassed_Milliseconds(300)){
 
     updateScreen();
     updateHistory();
