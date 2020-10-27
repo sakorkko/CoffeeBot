@@ -126,15 +126,22 @@ void CheckForConnections()
     // the connection. 
     Serial.println("Connection accepted");
     // RemoteClient = Server.available();
-    RemoteClient.write("Hello world"); 
+    char amount[8];
+    // dtostrf(current_coffee, 6, 2, amount);
+    char dest[50];
+    strcpy(dest, "sadffdfddaf");
+    strcat(dest, amount);
+    const String hello = String("hallsdf ");
+    // const char body[] = ;    //" and temperature " + String(temperature_mean[0]); 
+    RemoteClient.flush();
+    RemoteClient.println("SDFASDF" + String(123));
+    // RemoteClient.write(dest, sizeof(dest)); 
     if (RemoteClient.connected())
     {
       RemoteClient.stop();
       Serial.println("Connection switched");
       //Server.available().stop();
     }
-      
-    
   }
 }
 
