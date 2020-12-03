@@ -67,6 +67,7 @@ float weight_mean[2]; //first 10 mean, last 10 mean
 float temperature_mean[2]; //first 10 mean, last 10 mean
 float used_coffee;
 float current_coffee;
+float coffee_mean_saved = 0;
 
 //Wifi settings
 const char* ssid     = "OTiT";
@@ -212,13 +213,14 @@ void setupEeprom(void) {
 
 void tempChange(void) {
   if (temperature_mean[1] - temperature_mean[0] > TEMPERATURE_TRESHOLD) {
+    Serial.println("Temperature decreased...");
     if (brew) {
-      // Brewing done
+      Serial.println("Brewing done.");
       brew = false;
     }
     else {
       if (getTemperature() < COLD_COFFEE_TEMPERATURE) {
-        // Coffee too cold
+        Serial.println("Coffee too cold now.");
         cold = true;
       }
     }
@@ -448,32 +450,43 @@ void loop() {
     }
     else{
       if (calculateChangesResult) {
+        Serial.println("Noticed changes, entering loop...");
         if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHOLD) {
+          Serial.println("Weight decreased!");
           if (!cold) {
-            // CoffeeUsed += weigth change // check that this is in state machine todo
+            Serial.println("Coffee is hot...");
             if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
-              // Pan gone ignore data back to wait
+              // pan gone, save previous weight if coffee is used after
+              Serial.println("Pan is gone...");
+              coffee_mean_saved = weight_mean[1];
             }
             else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
+              Serial.println("Weight decreased, looks like someone took some coffee...");
+              used_coffee += getWeight() - coffee_mean_saved;
               tempChange();
             }
             else {
+              Serial.println("No more coffee... Ending brew.");
               brew = false;
               empty = true;
             }
           }
         }
         else if ((weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHOLD) {
+          Serial.println("Weight increased!");
           if (empty) {
+            Serial.println("Empty flag is true... Starting brew.");
             brew = true;
             empty = false;
             cold = true;
           }
           else {
+            Serial.println("Not empty, continue to tempChange...");
             tempChange();
           }
         }
         else { // Weight change ~0
+          Serial.println("Weight about the same as before! Continue to tempChange...");
           tempChange();
         }
         Serial.print("WIGHT MEAN: ");
