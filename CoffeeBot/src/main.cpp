@@ -24,8 +24,8 @@
 #define LOADCELL_SCK_PIN 5
 
 // Thresholds
-#define TEMPERATURE_TRESHOLD 20
-#define WEIGHT_TRESHHOLD 200
+#define TEMPERATURE_TRESHOLD 10
+#define WEIGHT_TRESHHOLD 10000
 #define PAN_GONE_THRESHOLD 500
 #define TEMP_CHANGE_RATIO 0.01
 #define COLD_COFFEE_TEMPERATURE 35
@@ -432,7 +432,7 @@ void loop() {
 
     updateScreen();
     updateHistory();
-    calculateChanges();
+    boolean calculateChangesResult = calculateChanges();
     serialLogAllData(); // todo make printing this prettier
     checkAndUpdateEstimate();
     
@@ -448,7 +448,7 @@ void loop() {
       cold = false;
     }
     else{
-      if (calculateChanges()) {
+      if (calculateChangesResult) {
         if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHHOLD) {
           if (!cold) {
             // CoffeeUsed += weigth change // check that this is in state machine todo
