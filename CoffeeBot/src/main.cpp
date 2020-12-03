@@ -26,7 +26,7 @@
 // Thresholds
 #define TEMPERATURE_TRESHOLD 10
 #define WEIGHT_TRESHHOLD 10000
-#define PAN_GONE_THRESHOLD 500
+#define PAN_GONE_THRESHOLD 10000
 #define TEMP_CHANGE_RATIO 0.01
 #define COLD_COFFEE_TEMPERATURE 35
 #define WEIGHT_TO_CL_RATIO 500
@@ -68,6 +68,7 @@ float weight_mean[2]; //first 10 mean, last 10 mean
 float temperature_mean[2]; //first 10 mean, last 10 mean
 float used_coffee;
 float current_coffee;
+float coffee_mean_saved;
 
 //Wifi settings
 const char* ssid     = "OTiT";
@@ -451,13 +452,14 @@ void loop() {
       if (calculateChangesResult) {
         if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHHOLD) {
           if (!cold) {
-            // CoffeeUsed += weigth change // check that this is in state machine todo
             if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
-              // Pan gone ignore data back to wait
+              // pan gone, save previous weight if coffee is used after
+              coffee_mean_saved = weight_mean[1];
             }
             else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
+              used_coffee += getWeight() - coffee_mean_saved;
               tempChange();
-            }
+            } 
             else {
               brew = false;
               empty = true;
