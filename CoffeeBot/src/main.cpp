@@ -26,10 +26,9 @@
 // Thresholds
 #define TEMPERATURE_TRESHOLD 10
 #define WEIGHT_TRESHHOLD 10000
-#define PAN_GONE_THRESHOLD 10000
-#define TEMP_CHANGE_RATIO 0.01
+#define PAN_GONE_THRESHOLD 500
 #define COLD_COFFEE_TEMPERATURE 35
-#define WEIGHT_TO_CL_RATIO 500
+#define WEIGHT_TO_CL_RATIO 1400
 
 // Flash memory
 #define EEPROM_SIZE 128 // change me 
@@ -68,7 +67,6 @@ float weight_mean[2]; //first 10 mean, last 10 mean
 float temperature_mean[2]; //first 10 mean, last 10 mean
 float used_coffee;
 float current_coffee;
-float coffee_mean_saved;
 
 //Wifi settings
 const char* ssid     = "OTiT";
@@ -213,7 +211,7 @@ void setupEeprom(void) {
 }
 
 void tempChange(void) {
-  if (temperature_mean[0] < temperature_mean[1] * TEMP_CHANGE_RATIO) {
+  if (temperature_mean[1] - temperature_mean[0] > TEMPERATURE_TRESHOLD) {
     if (brew) {
       // Brewing done
       brew = false;
@@ -452,14 +450,13 @@ void loop() {
       if (calculateChangesResult) {
         if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHHOLD) {
           if (!cold) {
+            // CoffeeUsed += weigth change // check that this is in state machine todo
             if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
-              // pan gone, save previous weight if coffee is used after
-              coffee_mean_saved = weight_mean[1];
+              // Pan gone ignore data back to wait
             }
             else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
-              used_coffee += getWeight() - coffee_mean_saved;
               tempChange();
-            } 
+            }
             else {
               brew = false;
               empty = true;
