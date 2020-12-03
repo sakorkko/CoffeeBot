@@ -25,7 +25,7 @@
 
 // Thresholds
 #define TEMPERATURE_TRESHOLD 10
-#define WEIGHT_TRESHHOLD 10000
+#define WEIGHT_TRESHOLD 10000
 #define PAN_GONE_THRESHOLD 500
 #define COLD_COFFEE_TEMPERATURE 35
 #define WEIGHT_TO_CL_RATIO 1400
@@ -248,7 +248,7 @@ boolean calculateChanges(void) {
   weight_mean[1] = average((weight_history + 10), 10);
   temperature_mean[0] = average(temperature_history, 10);
   temperature_mean[1] = average((temperature_history + 10), 10);
-  if (abs(weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHHOLD)
+  if (abs(weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHOLD)
     return true;
   if (abs(temperature_mean[0] - temperature_mean[1]) > TEMPERATURE_TRESHOLD)
     return true;
@@ -448,7 +448,7 @@ void loop() {
     }
     else{
       if (calculateChangesResult) {
-        if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHHOLD) {
+        if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHOLD) {
           if (!cold) {
             // CoffeeUsed += weigth change // check that this is in state machine todo
             if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
@@ -463,7 +463,7 @@ void loop() {
             }
           }
         }
-        else if ((weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHHOLD) {
+        else if ((weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHOLD) {
           if (empty) {
             brew = true;
             empty = false;
@@ -476,6 +476,10 @@ void loop() {
         else { // Weight change ~0
           tempChange();
         }
+        Serial.print("WIGHT MEAN: ");
+        Serial.println(weight_mean[0]);
+        Serial.print("TEMP MEAN: ");
+        Serial.println(temperature_mean[0]);
       }
       else{
         // Pass
