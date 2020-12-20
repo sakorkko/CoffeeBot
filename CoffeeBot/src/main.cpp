@@ -53,6 +53,16 @@ Adafruit_MLX90614 mlx = Adafruit_MLX90614();
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 HX711 scale;
 
+enum machineStates{
+  IDLE,
+  HEATING,
+  COFFEE_READY,
+  PAN_GONE
+};
+
+enum machineStates currentState;
+enum machineStates nextState;
+
 // Globals
 boolean brew;
 boolean empty;
@@ -115,6 +125,11 @@ void setupEeprom(void);
 void checkAndUpdateEstimate(void);
 
 void CheckForConnections(void);
+
+void idleState(void);
+void heatingState(void);
+void readyState(void);
+void missingPanState(void);
  
 void CheckForConnections()
 {
@@ -381,6 +396,44 @@ void listNetworks() {
   }
 }
 
+//STATE FUNCTIONS. CHECK SENSORS AND SET NEXT STATE IF NECESSERY
+void idleState(){
+  boolean gotToHeatingPhase = false;
+  if(gotToHeatingPhase){
+    nextState = HEATING;
+  } 
+}
+
+void heatingState(){
+  boolean goToIdle = false;
+  boolean goToReady = false;
+  boolean goToPan = false;
+  if(goToIdle){
+    nextState = HEATING;
+  } else if(goToReady){
+    nextState = COFFEE_READY;
+  } else if(goToPan){
+    nextState = PAN_GONE;
+  }
+}
+
+void readyState(){
+  boolean goToIdle = false;
+  boolean goToPan = false;
+  if(goToIdle){
+    nextState = HEATING;
+  } else if(goToPan){
+    nextState = PAN_GONE;
+  }
+}
+
+void missingPanState(){
+  boolean goToReady = false;
+  if(goToReady){
+    nextState = COFFEE_READY  ;
+  }
+}
+
 void setup() {
   Serial.begin(9600);
   mlx.begin();
@@ -423,80 +476,43 @@ void setup() {
   getEspTime();
   last_half_hour = getEspTime() - 1799; // todo remove the 1799 part
   Server.begin();
-
+  currentState = IDLE;
+  nextState = IDLE;
 }
 
-void loop() {
+void loop() { 
+  // State values: IDLE, HEATING, COFFEE_READY, PAN_GONE
   CheckForConnections();
-
   if(SendTimer.TimePassed_Milliseconds(300)){
-
+    //UPDATE SCREEN AND HISTORY, NOT SURE IF HISTORY CHECK BELONGS HERE
     updateScreen();
     updateHistory();
-    boolean calculateChangesResult = calculateChanges();
-    serialLogAllData(); // todo make printing this prettier
-    checkAndUpdateEstimate();
+
+    currentState = nextState;
+
+    // DECIDE IF CHECK AND UPDATE GOES HERE
+    // boolean calculateChangesResult = calculateChanges();
+    // serialLogAllData(); // todo make printing this prettier
+    // checkAndUpdateEstimate();
     
     if (digitalRead(BUTTON_PIN)) {
-      // Log trashing
-      current_coffee += EEPROM.readFloat(WASTED_COFFEE_SLOT);
-      EEPROM.writeFloat(WASTED_COFFEE_SLOT, current_coffee);
-      EEPROM.commit();
-      current_coffee = 0;
-      used_coffee = 0;
-      brew = false;
-      empty = true;
-      cold = false;
+      // RESET CODE HERE
+      currentState = IDLE;
+      nextState = IDLE;
     }
-    else{
-      if (calculateChangesResult) {
-        Serial.println("Noticed changes, entering loop...");
-        if ((weight_mean[0] - weight_mean[1]) < WEIGHT_TRESHOLD) {
-          Serial.println("Weight decreased!");
-          if (!cold) {
-            Serial.println("Coffee is hot...");
-            if (getWeight() + PAN_GONE_THRESHOLD < zeroed_weight) {
-              // pan gone, save previous weight if coffee is used after
-              Serial.println("Pan is gone...");
-              coffee_mean_saved = weight_mean[1];
-            }
-            else if (getWeight() - PAN_GONE_THRESHOLD > zeroed_weight) {
-              Serial.println("Weight decreased, looks like someone took some coffee...");
-              used_coffee += getWeight() - coffee_mean_saved;
-              tempChange();
-            }
-            else {
-              Serial.println("No more coffee... Ending brew.");
-              brew = false;
-              empty = true;
-            }
-          }
-        }
-        else if ((weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHOLD) {
-          Serial.println("Weight increased!");
-          if (empty) {
-            Serial.println("Empty flag is true... Starting brew.");
-            brew = true;
-            empty = false;
-            cold = true;
-          }
-          else {
-            Serial.println("Not empty, continue to tempChange...");
-            tempChange();
-          }
-        }
-        else { // Weight change ~0
-          Serial.println("Weight about the same as before! Continue to tempChange...");
-          tempChange();
-        }
-        Serial.print("WIGHT MEAN: ");
-        Serial.println(weight_mean[0]);
-        Serial.print("TEMP MEAN: ");
-        Serial.println(temperature_mean[0]);
-      }
-      else{
-        // Pass
-      }
+    switch(currentState){
+      case IDLE:
+        idleState();
+        break;
+      case HEATING:
+        heatingState();
+        break;
+      case COFFEE_READY:
+        readyState();
+        break;
+      case PAN_GONE:
+        missingPanState();
+        break;
     }
   }
 }
