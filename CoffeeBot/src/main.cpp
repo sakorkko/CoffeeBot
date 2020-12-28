@@ -27,6 +27,7 @@
 #define TEMPERATURE_TRESHOLD 10
 #define WEIGHT_TRESHOLD 10000
 #define PAN_GONE_THRESHOLD 500
+#define WEIGHT_RISING_THRESHOLD 10 // TODO: NEEDS TESTING FOR SURE
 #define COLD_COFFEE_TEMPERATURE 35
 #define WEIGHT_TO_CL_RATIO 1400
 
@@ -396,7 +397,7 @@ void listNetworks() {
   }
 }
 
-//STATE FUNCTIONS. CHECK SENSORS AND SET NEXT STATE IF NECESSERY
+//STATE FUNCTIONS. CHECK SENSORS AND SET NEXT STATE IF NECESSARY
 void idleState(){
   boolean gotToHeatingPhase = false;
   if(gotToHeatingPhase){
@@ -405,15 +406,12 @@ void idleState(){
 }
 
 void heatingState(){
-  boolean goToIdle = false;
-  boolean goToReady = false;
-  boolean goToPan = false;
-  if(goToIdle){
-    nextState = HEATING;
-  } else if(goToReady){
+  if(temperature_mean[1] < COLD_COFFEE_TEMPERATURE){ //if(temperature < cold_threshold){ // if coffee colder than threshold -> reset cycle -> idle
+    nextState = IDLE;
+  } else if(abs(weight_mean[1] - weight_mean[0]) < WEIGHT_RISING_THRESHOLD){ //if(abs(weight_avg_now - weight_avg_then) < threshold){ // if weight gaining has stopped -> coffee is ready
     nextState = COFFEE_READY;
-  } else if(goToPan){
-    nextState = PAN_GONE;
+  } else if(weight_mean[1] < PAN_GONE_THRESHOLD){ //if(weight_avg_now < pan_gone_threshold){ // if weight below pan_gone threshold -> pan is gone
+      nextState = PAN_GONE;
   }
 }
 
