@@ -77,8 +77,8 @@ float temperature_history[20];
 float weight_mean[2]; //first 10 mean, last 10 mean
 float temperature_mean[2]; //first 10 mean, last 10 mean
 float used_coffee;
-float current_coffee;
-float coffee_mean_saved = 0;
+float previous_pan_weight;
+float saved_pan_weight;
 
 //Wifi settings
 const char* ssid     = "OTiT";
@@ -266,6 +266,7 @@ boolean calculateChanges(void) {
   weight_mean[1] = average((weight_history + 10), 10);
   temperature_mean[0] = average(temperature_history, 10);
   temperature_mean[1] = average((temperature_history + 10), 10);
+  previous_pan_weight = average((weight_history + 15), 5);
   if (abs(weight_mean[0] - weight_mean[1]) > WEIGHT_TRESHOLD)
     return true;
   if (abs(temperature_mean[0] - temperature_mean[1]) > TEMPERATURE_TRESHOLD)
@@ -415,20 +416,20 @@ void heatingState(){
   }
 }
 
-void readyState(){
-  boolean goToIdle = false;
-  boolean goToPan = false;
-  if(goToIdle){
-    nextState = HEATING;
-  } else if(goToPan){
+void readyState() {
+  if (temperature_mean[1] < COLD_COFFEE_TEMPERATURE) {
+    nextState = IDLE;
+  }
+  else if (weight_mean[0] < (weight_mean[1] - PAN_GONE_THRESHOLD) {
+    saved_pan_weight = previous_pan_weight;
     nextState = PAN_GONE;
   }
 }
 
 void missingPanState(){
-  boolean goToReady = false;
-  if(goToReady){
-    nextState = COFFEE_READY  ;
+  if (weight_mean[0] > (weight_mean[1] + PAN_GONE_THRESHOLD)) {
+    used_coffee = used_coffee + (saved_pan_weight - average(weight_history), 3));
+    nextState = COFFEE_READY;
   }
 }
 
@@ -485,13 +486,13 @@ void loop() {
     //UPDATE SCREEN AND HISTORY, NOT SURE IF HISTORY CHECK BELONGS HERE
     updateScreen();
     updateHistory();
+    calculateChanges();
+    checkAndUpdateEstimate();
 
     currentState = nextState;
 
     // DECIDE IF CHECK AND UPDATE GOES HERE
-    // boolean calculateChangesResult = calculateChanges();
     // serialLogAllData(); // todo make printing this prettier
-    // checkAndUpdateEstimate();
     
     if (digitalRead(BUTTON_PIN)) {
       // RESET CODE HERE
