@@ -400,10 +400,9 @@ void listNetworks() {
 
 //STATE FUNCTIONS. CHECK SENSORS AND SET NEXT STATE IF NECESSARY
 void idleState(){
-  boolean gotToHeatingPhase = false;
-  if(gotToHeatingPhase){
-    nextState = HEATING;
-  } 
+  if(temperature_mean[0] > COLD_COFFEE_TEMPERATURE){ 
+     nextState = HEATING;
+   }
 }
 
 void heatingState(){
