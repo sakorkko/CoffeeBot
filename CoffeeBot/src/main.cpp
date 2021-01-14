@@ -406,12 +406,14 @@ void idleState(){
 }
 
 void heatingState(){
-  if(temperature_mean[0] < COLD_COFFEE_TEMPERATURE){ //if(temperature < cold_threshold){ // if coffee colder than threshold -> reset cycle -> idle
-    nextState = IDLE;
-  } else if(abs(weight_mean[0] - weight_mean[1) < WEIGHT_RISING_THRESHOLD){ //if(abs(weight_avg_now - weight_avg_then) < threshold){ // if weight gaining has stopped -> coffee is ready
+  if(weight_mean[0] < PAN_GONE_THRESHOLD){ //if(weight_avg_now < pan_gone_threshold){ // if weight below pan_gone threshold -> pan is gone
+    nextState = PAN_GONE;
+  }
+  else if(abs(weight_mean[0] - weight_mean[1]) < WEIGHT_RISING_THRESHOLD){ //if(abs(weight_avg_now - weight_avg_then) < threshold){ // if weight gaining has stopped -> coffee is ready
     nextState = COFFEE_READY;
-  } else if(weight_mean[0] < PAN_GONE_THRESHOLD){ //if(weight_avg_now < pan_gone_threshold){ // if weight below pan_gone threshold -> pan is gone
-      nextState = PAN_GONE;
+  }
+  else if(temperature_mean[0] < COLD_COFFEE_TEMPERATURE){ //if(temperature < cold_threshold){ // if coffee colder than threshold -> reset cycle -> idle
+    nextState = IDLE;
   }
 }
 
@@ -419,7 +421,7 @@ void readyState() {
   if (temperature_mean[1] < COLD_COFFEE_TEMPERATURE) {
     nextState = IDLE;
   }
-  else if (weight_mean[0] < (weight_mean[1] - PAN_GONE_THRESHOLD) {
+  else if (weight_mean[0] < (weight_mean[1] - PAN_GONE_THRESHOLD)) {
     saved_pan_weight = previous_pan_weight;
     nextState = PAN_GONE;
   }
@@ -427,7 +429,7 @@ void readyState() {
 
 void missingPanState(){
   if (weight_mean[0] > (weight_mean[1] + PAN_GONE_THRESHOLD)) {
-    used_coffee = used_coffee + (saved_pan_weight - average(weight_history), 3));
+    used_coffee = used_coffee + (saved_pan_weight - average(weight_history, 3));
     nextState = COFFEE_READY;
   }
 }
