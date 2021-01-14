@@ -282,28 +282,59 @@ float average (float * array, int len) {
 }
 
 void updateScreen(void) {
-  // Prepare display
-  display.clearDisplay();
-  display.setTextSize(1); // todo make display prettier, btw display size is 128x64
-  display.setTextColor(SSD1306_WHITE); // White text
-  display.setCursor(0,0); // Top-left
+    // Prepare display
+    display.clearDisplay();
+    display.setTextSize(1); // todo make display prettier, btw display size is 128x64
+    display.setTextColor(SSD1306_WHITE); // White text
+    display.setCursor(0,0); // Top-left
 
-  // Print to serial monitor
-  // Serial.print("Printing to the screen, the time is: ");
-  // Serial.print(now());
-  // Serial.print("\n");
+    switch(currentState){
+        case IDLE:
+            display.println(" __\\/__      ZZZzzzZ  ")
+            display.println("[.z__z.] -   ZZzzZZ   ")
+            display.println(" [_--_]               ")
+            break;
+        case HEATING:
+            display.println(" __\\/__    Coffee goes")
+            display.println("[.O__O.] -   BRRRRRRRR")
+            display.println(" [_--_]               ")
+            break;
+        case COFFEE_READY:
+            display.println(" __\\/__    Coffee is  ")
+            display.println("[.^__^.] -  now ready!")
+            display.println(" [_--_]               ")
+            break;
+        case PAN_GONE:
+            display.println(" __\\/__    Enjoy your ")
+            display.println("[.*__*.] -    Coffee! ")
+            display.println(" [_--_]               ")
+            break;
+    }
 
-  // Input data to display
-  display.println("CoffeeBot");
-  display.print(F("Time: "));
-  display.println(now());
-  display.print(F("Temp: "));
-  display.println(temperature_history[0]);
-  display.print(F("Weigth: "));
-  display.println(weight_history[0]);
+    display.println("Avg. Coffee usage now:");
+    display.print(F("????! "));
+    display.print(F("("));
+    display.print(F("??.??"));
+    display.println(" cups)");
+    display.println("Total:");
+    display.print(F("drank: "));
+    display.print(F("???"));
+    display.println(" cups");
+    display.print(F("wasted: "));
+    display.print(F("???"));
+    display.println(" cups");
 
-  // Print to display
-  display.display();
+    // Input data to display
+//    display.println("CoffeeBot");
+//    display.print(F("Time: "));
+//    display.println(now());
+//    display.print(F("Temp: "));
+//    display.println(temperature_history[0]);
+//    display.print(F("Weigth: "));
+//    display.println(weight_history[0]);
+
+    // Print to display
+    display.display();
 }
 
 void serialLogAllData(void) {
