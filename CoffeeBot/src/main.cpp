@@ -276,24 +276,24 @@ void updateScreen(void) {
 
     switch(currentState){
         case IDLE:
-            display.println(" __\\/__      ZZZzzzZ  ")
-            display.println("[.z__z.] -   ZZzzZZ   ")
-            display.println(" [_--_]               ")
+            display.println(" __\\/__      ZZZzzzZ  ");
+            display.println("[.z__z.] -   ZZzzZZ   ");
+            display.println(" [_--_]               ");
             break;
         case HEATING:
-            display.println(" __\\/__    Coffee goes")
-            display.println("[.O__O.] -   BRRRRRRRR")
-            display.println(" [_--_]               ")
+            display.println(" __\\/__    Coffee goes");
+            display.println("[.O__O.] -   BRRRRRRRR");
+            display.println(" [_--_]               ");
             break;
         case COFFEE_READY:
-            display.println(" __\\/__    Coffee is  ")
-            display.println("[.^__^.] -  now ready!")
-            display.println(" [_--_]               ")
+            display.println(" __\\/__    Coffee is  ");
+            display.println("[.^__^.] -  now ready!");
+            display.println(" [_--_]               ");
             break;
         case PAN_GONE:
-            display.println(" __\\/__    Enjoy your ")
-            display.println("[.*__*.] -    Coffee! ")
-            display.println(" [_--_]               ")
+            display.println(" __\\/__    Enjoy your ");
+            display.println("[.*__*.] -    Coffee! ");
+            display.println(" [_--_]               ");
             break;
     }
 
