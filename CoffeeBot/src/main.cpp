@@ -100,33 +100,19 @@ unsigned long previousMillis = 0;
 ArduinoTimer SendTimer;
 
 void tempChange(void);
-
 float getWeight(void);
-
 float getTemperature(void);
-
 boolean calculateChanges(void);
-
 float average(float * array, int len);
-
 void updateScreen(void);
-
 void serialLogAllData(void);
-
 void updateHistory(void);
-
 uint32_t getEspTime(void);
-
 void updateEspTime(void);
-
 void listNetworks(void);
-
 void setupEeprom(void);
-
 void checkAndUpdateEstimate(void);
-
 void CheckForConnections(void);
-
 void idleState(void);
 void heatingState(void);
 void readyState(void);
@@ -512,25 +498,31 @@ void setup() {
 }
 
 void loop() { 
-  // State values: IDLE, HEATING, COFFEE_READY, PAN_GONE
-  CheckForConnections();
   if(SendTimer.TimePassed_Milliseconds(300)){
-    //UPDATE SCREEN AND HISTORY, NOT SURE IF HISTORY CHECK BELONGS HERE
+    CheckForConnections();
     updateScreen();
+    serialLogAllData();
     updateHistory();
     calculateChanges();
     checkAndUpdateEstimate();
 
-    currentState = nextState;
-
-    // DECIDE IF CHECK AND UPDATE GOES HERE
-    // serialLogAllData(); // todo make printing this prettier
+    // State change
+    if (nextState != currentState) {
+      Serial.println();
+      Serial.print("Changing state from ");
+      Serial.print(currentState);
+      Serial.print(" to ");
+      Serial.print(nextState);
+      currentState = nextState;
+    }
     
+    // Reset button
     if (digitalRead(BUTTON_PIN)) {
-      // RESET CODE HERE
       currentState = IDLE;
       nextState = IDLE;
     }
+ 
+    // Switch case
     switch(currentState){
       case IDLE:
         idleState();
