@@ -26,7 +26,7 @@
 // Thresholds
 #define TEMPERATURE_TRESHOLD 10
 #define WEIGHT_TRESHOLD 10000
-#define PAN_GONE_THRESHOLD 500
+#define PAN_GONE_THRESHOLD 20000
 #define WEIGHT_RISING_THRESHOLD 10 // TODO: NEEDS TESTING FOR SURE
 #define COLD_COFFEE_TEMPERATURE 35
 #define WEIGHT_TO_CL_RATIO 1400
@@ -79,6 +79,7 @@ float temperature_mean[2]; //first 10 mean, last 10 mean
 float used_coffee;
 float previous_pan_weight;
 float saved_pan_weight;
+boolean measurement_taken;
 
 //Wifi settings
 const char* ssid     = "OTiT";
@@ -191,8 +192,8 @@ void checkAndUpdateEstimate(void) {
     last_half_hour = current_time - current_time % 1800;
   }
   else {
-    Serial.print("Seconds until next half hour triggers ");
-    Serial.println(String(last_half_hour + 1800 - current_time));
+    // Serial.print("Seconds until next half hour triggers ");
+    // Serial.println(String(last_half_hour + 1800 - current_time));
   }
 }
 
@@ -201,9 +202,10 @@ void setupEeprom(void) {
   EEPROM.writeUShort(POS_INDEX, POS_LOG_START);
   EEPROM.writeFloat(POS_WEIGHT_DIFF, 123123);
   EEPROM.writeFloat(POS_WEIGHT_RATIO, 123123);
-  EEPROM.writeFloat(POS_COFFEE_BREWED, 0);
-  EEPROM.writeFloat(POS_COFFEE_USED, 0);
-  EEPROM.writeFloat(POS_COFFEE_WASTED, 0);
+  EEPROM.writeFloat(POS_COFFEE_BREWED, 150.52);
+  EEPROM.writeFloat(POS_COFFEE_USED, 100);
+  float sadfds = 122;
+  EEPROM.writeFloat(POS_COFFEE_WASTED, sadfds);
   for (size_t i = 0; i < POS_LOG_START; i++)
   {
     EEPROM.writeByte(i, 0);
@@ -211,6 +213,9 @@ void setupEeprom(void) {
   if (!EEPROM.commit()) {
     for (;;) Serial.print(F("commit failed"));
   }
+
+  Serial.print(EEPROM.readFloat(POS_COFFEE_WASTED));
+  Serial.print("ASDASDASDSADSADASDASDSADASDASDDASDSDADSDAS"); 
 }
 
 void tempChange(void) {
@@ -298,17 +303,17 @@ void updateScreen(void) {
     }
 
     display.println("Avg Coffee usage now:");
-    display.print(F("????! "));
+    display.print(F("0.00"));
     display.print(F("("));
-    display.print(F("??.??"));
-    display.println(" cups)");
+    display.print(F("0.00"));
+    display.println(" cl)");
     display.println("Total:");
     display.print(F("drank: "));
-    display.print(F("???"));
-    display.println(" cups");
-    display.print(F("wasted: "));
-    display.print(F("???"));
-    display.println(" cups");
+    display.print(EEPROM.readFloat(POS_COFFEE_USED));
+    display.println(" cl");
+    display.print(F("brewed: "));
+    display.print((EEPROM.readFloat(POS_COFFEE_BREWED)));
+    display.println(" cl");
 
     // Input data to display
 //    display.println("CoffeeBot");
@@ -324,6 +329,13 @@ void updateScreen(void) {
 }
 
 void serialLogAllData(void) {
+  Serial.print("Used coffee: ");
+  Serial.println(used_coffee);
+
+  // Serial.print(" Weight mean0: ");
+  // Serial.print(weight_mean[0]);
+  //Serial.print(" Weight mean1: ");
+  // Serial.print(weight_mean[1]);
   // Print everything here
   // Serial.print("Weight history ");
   // for (int i = 0 ; i < 20 ; i++) {
@@ -423,19 +435,26 @@ void idleState(){
 }
 
 void heatingState(){
-  if(weight_mean[0] < PAN_GONE_THRESHOLD){ //if(weight_avg_now < pan_gone_threshold){ // if weight below pan_gone threshold -> pan is gone
+  if(weight_mean[0] < PAN_GONE_THRESHOLD){
     nextState = PAN_GONE;
   }
-  else if(abs(weight_mean[0] - weight_mean[1]) < WEIGHT_RISING_THRESHOLD){ //if(abs(weight_avg_now - weight_avg_then) < threshold){ // if weight gaining has stopped -> coffee is ready
+  else if(abs(weight_mean[0] - weight_mean[1]) < WEIGHT_RISING_THRESHOLD){
     nextState = COFFEE_READY;
   }
-  else if(temperature_mean[0] < COLD_COFFEE_TEMPERATURE){ //if(temperature < cold_threshold){ // if coffee colder than threshold -> reset cycle -> idle
+  else if(temperature_mean[0] < COLD_COFFEE_TEMPERATURE){
     nextState = IDLE;
   }
 }
 
 void readyState() {
-  if (temperature_mean[1] < COLD_COFFEE_TEMPERATURE) {
+  if (!measurement_taken) {
+    if (abs(weight_mean[0] - weight_mean[1]) < weight_mean[0] * 0.05) {
+      used_coffee = used_coffee + (saved_pan_weight - weight_mean[0]);
+      measurement_taken = true;
+    }
+  }
+
+  else if (temperature_mean[1] < COLD_COFFEE_TEMPERATURE) {
     nextState = IDLE;
   }
   else if (weight_mean[0] < (weight_mean[1] - PAN_GONE_THRESHOLD)) {
@@ -446,8 +465,8 @@ void readyState() {
 
 void missingPanState(){
   if (weight_mean[0] > (weight_mean[1] + PAN_GONE_THRESHOLD)) {
-    used_coffee = used_coffee + (saved_pan_weight - average(weight_history, 3));
     nextState = COFFEE_READY;
+    measurement_taken = false;
   }
 }
 
@@ -520,6 +539,21 @@ void loop() {
     if (digitalRead(BUTTON_PIN)) {
       currentState = IDLE;
       nextState = IDLE;
+
+      float temp_used = EEPROM.readFloat(POS_COFFEE_USED);
+      temp_used = temp_used + (used_coffee / WEIGHT_TO_CL_RATIO);
+      EEPROM.writeFloat(POS_COFFEE_USED, temp_used);
+
+      float temp_wasted = EEPROM.readFloat(POS_COFFEE_WASTED);
+      temp_wasted = temp_wasted + ((weight_mean[0] - zeroed_weight) / WEIGHT_TO_CL_RATIO);
+      EEPROM.writeFloat(POS_COFFEE_WASTED, temp_wasted);
+
+      float temp_brewed = EEPROM.readFloat(POS_COFFEE_BREWED);
+      temp_brewed = temp_used + temp_wasted;
+      EEPROM.writeFloat(POS_COFFEE_BREWED, temp_brewed);
+
+      EEPROM.commit();
+      used_coffee = 0;
     }
  
     // Switch case
