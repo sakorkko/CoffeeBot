@@ -36,7 +36,7 @@
 #define WASTED_COFFEE_SLOT 0
 
 // Button pins
-#define BUTTON_PIN 23
+#define BUTTON_PIN 15
 
 // EEPROM positions
 #define POS_INDEX             0    // uint 16
