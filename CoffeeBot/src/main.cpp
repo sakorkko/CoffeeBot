@@ -26,7 +26,7 @@
 // Thresholds
 #define TEMPERATURE_TRESHOLD 10
 #define WEIGHT_TRESHOLD 10000
-#define PAN_GONE_THRESHOLD 20000
+#define PAN_GONE_THRESHOLD 30000
 #define WEIGHT_RISING_THRESHOLD 10 // TODO: NEEDS TESTING FOR SURE
 #define COLD_COFFEE_TEMPERATURE 35
 #define WEIGHT_TO_CL_RATIO 1400
@@ -232,11 +232,6 @@ void tempChange(void) {
       }
     }
   }
-  //TODO do this loggin below
-  //Log: data,weight,temp
-  //Calculate: usage for current time
-  //Broadcast
-  updateScreen(); // Todo, maybe add updating screen elsewhere also
 }
 
 float getWeight(void) {
@@ -302,17 +297,21 @@ void updateScreen(void) {
             break;
     }
 
-    display.println("Avg Coffee usage now:");
-    display.print(F("0.00"));
-    display.print(F("("));
-    display.print(F("0.00"));
-    display.println(" cl)");
+    const float used = used_coffee / WEIGHT_TO_CL_RATIO;
+    const float tot_used = EEPROM.readFloat(POS_COFFEE_USED);
+    const float tot_brew = EEPROM.readFloat(POS_COFFEE_BREWED);
+
+    display.println("Current brew:");
+    display.print(F("drank: "));
+    display.print(used);
+    display.println(" cl");
+
     display.println("Total:");
     display.print(F("drank: "));
-    display.print(EEPROM.readFloat(POS_COFFEE_USED));
+    display.print(tot_used);
     display.println(" cl");
     display.print(F("brewed: "));
-    display.print((EEPROM.readFloat(POS_COFFEE_BREWED)));
+    display.print(tot_brew);
     display.println(" cl");
 
     // Input data to display
@@ -493,6 +492,8 @@ void setup() {
     weight_history[i] = zeroed_weight;
     temperature_history[i] = zeroed_temperature;
   };
+  used_coffee = 0;
+  measurement_taken = true;
 
   // Wireless
   Serial.print("Connecting to ");
@@ -545,7 +546,7 @@ void loop() {
       EEPROM.writeFloat(POS_COFFEE_USED, temp_used);
 
       float temp_wasted = EEPROM.readFloat(POS_COFFEE_WASTED);
-      temp_wasted = temp_wasted + ((weight_mean[0] - zeroed_weight) / WEIGHT_TO_CL_RATIO);
+      temp_wasted = temp_wasted + ((weight_mean[1] - zeroed_weight) / WEIGHT_TO_CL_RATIO);
       EEPROM.writeFloat(POS_COFFEE_WASTED, temp_wasted);
 
       float temp_brewed = EEPROM.readFloat(POS_COFFEE_BREWED);
